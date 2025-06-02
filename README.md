@@ -74,3 +74,11 @@ This has been hacked together, it would be better if it:
 - accepted a path to an output file
 
 This seemed like overkill for a proof of concept.
+
+## Missing Features
+
+There are a few missing features which have not been implemented but are
+relatively straight forward:
+
+- Audit records are not being ordered (I forgot: quick fix)
+- There is no pagination (I didn't have time: simple but time consuming fix)
