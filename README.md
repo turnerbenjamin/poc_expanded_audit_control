@@ -54,3 +54,23 @@ be better to shift this logic to a custom web api:
 - Audit data rows can be returned preformatted to the client
 
 This approach would also simplify updating the cached metadata.
+
+## SchemaBuilder
+
+The schema builder requires a .env file in the SchemaBuilder directory:
+
+```env
+CLIENT_ID={APPLICATION ID}
+CLIENT_SECRET={APPLICATION SECRET}
+INSTANCE_URL=https://{{ORG}}.crm11.dynamics.com
+```
+
+The app registration will also need to registered as an app user in the relevant
+environment and given the required permissions.
+
+This has been hacked together, it would be better if it:
+
+- accepted a path to a configuration.json file
+- accepted a path to an output file
+
+This seemed like overkill for a proof of concept.
