@@ -1,6 +1,6 @@
 using System;
-using dotenv.net;
-using dotenv.net.Utilities;
+using System.Collections.Generic;
+using System.IO;
 
 namespace SchemaBuilder.Config
 {
@@ -8,28 +8,23 @@ namespace SchemaBuilder.Config
     /// Provides configuration settings for Dataverse service connections by
     /// loading values from environment variables.
     /// </summary>
-    /// <remarks>
-    /// This class loads configuration from a .env file and provides access to
-    /// connection parameters for authenticating with Microsoft Dataverse using
-    /// a service principal.
-    /// </remarks>
     internal class AppConfig : IAppConfig
     {
         /// <summary>
         /// Gets the client ID (application ID) for the EntraID application
         /// registration.
         /// </summary>
-        public string ClientId { get; }
+        public string ClientId { get; private set; }
 
         /// <summary>
         /// Gets the client secret for the EntraID application registration.
         /// </summary>
-        public string ClientSecret { get; }
+        public string ClientSecret { get; private set; }
 
         /// <summary>
         /// Gets the URI of the Dataverse instance to connect to.
         /// </summary>
-        public Uri InstanceUri { get; }
+        public Uri InstanceUri { get; private set; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AppConfig"/> class.
@@ -44,26 +39,69 @@ namespace SchemaBuilder.Config
         {
             try
             {
-                DotEnv
-                    .Fluent()
-                    .WithExceptions()
-                    .WithEnvFiles(dotEnvPath)
-                    .WithoutProbeForEnv()
-                    .WithTrimValues()
-                    .Load();
+                var envVars = LoadEnvironmentVariables(dotEnvPath);
 
-                ClientId = EnvReader.GetStringValue("CLIENT_ID");
-                ClientSecret = EnvReader.GetStringValue("CLIENT_SECRET");
-                string instanceUrl = EnvReader.GetStringValue("INSTANCE_URL");
-                InstanceUri = new Uri(instanceUrl);
+                ClientId = GetStringValue(envVars, "CLIENT_ID");
+                ClientSecret = GetStringValue(envVars, "CLIENT_SECRET");
+                InstanceUri = new Uri(GetStringValue(envVars, "INSTANCE_URL"));
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!(ex is ApplicationException))
             {
                 throw new ApplicationException(
                     $"Failed to load application configuration: {ex.Message}",
                     ex
                 );
             }
+        }
+
+        /// <summary>
+        /// Loads environment variables from a .env file.
+        /// </summary>
+        /// <param name="filePath">The path to the .env file.</param>
+        /// <returns>A dictionary containing the environment variables.</returns>
+        private Dictionary<string, string> LoadEnvironmentVariables(string filePath)
+        {
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"Environment file not found at {filePath}");
+
+            var envVars = new Dictionary<string, string>();
+
+            // Read all lines from the .env file
+            string[] lines = File.ReadAllLines(filePath);
+
+            foreach (var line in lines)
+            {
+                if (string.IsNullOrEmpty(line))
+                {
+                    continue;
+                }
+
+                int equalSignIndex = line.IndexOf('=');
+                if (equalSignIndex <= 0)
+                {
+                    continue;
+                }
+
+                string key = line.Substring(0, equalSignIndex).Trim();
+                string value = line.Substring(equalSignIndex + 1).Trim();
+
+                envVars[key] = value;
+            }
+
+            return envVars;
+        }
+
+        /// <summary>
+        /// Gets a string value from the environment variables.
+        /// </summary>
+        private string GetStringValue(Dictionary<string, string> envVars, string key)
+        {
+            if (!envVars.TryGetValue(key, out string value) || string.IsNullOrEmpty(value))
+                throw new ApplicationException(
+                    $"Required environment variable {key} is missing or empty"
+                );
+
+            return value;
         }
     }
 }
