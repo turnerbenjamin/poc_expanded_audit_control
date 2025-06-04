@@ -15,7 +15,9 @@ import {
 export interface IDataverseController {
     GetExpandedAuditRecords(
         entityLogicalName: string,
-        entityId: string
+        entityId: string,
+        relationshipNames: string,
+        relatedEntityNames: string
     ): Promise<AuditTableData>;
 }
 
@@ -28,11 +30,17 @@ export class DataverseController implements IDataverseController {
 
     public async GetExpandedAuditRecords(
         entityLogicalName: string,
-        entityId: string
+        entityId: string,
+        relationshipNames: string,
+        relatedEntityNames: string
     ): Promise<AuditTableData> {
         try {
             const primaryEntityMetadata: DataversePrimaryEntityMetadata =
-                this.getPrimaryEntityMetadata(entityLogicalName);
+                Schema.getPrimaryEntityMetadata(
+                    entityLogicalName,
+                    relationshipNames,
+                    relatedEntityNames
+                );
 
             const recordsToFetchAuditDataFor =
                 await this.getRecordsToFetchAuditDataFor(
@@ -54,19 +62,6 @@ export class DataverseController implements IDataverseController {
         }
     }
 
-    private getPrimaryEntityMetadata(
-        entityLogicalName: string
-    ): DataversePrimaryEntityMetadata {
-        const primaryEntityMetadata: DataversePrimaryEntityMetadata | null =
-            Schema.getPrimaryEntityMetadata(entityLogicalName);
-        if (primaryEntityMetadata === null) {
-            throw new Error(
-                `Unable to access schema data for ${entityLogicalName}`
-            );
-        }
-        return primaryEntityMetadata;
-    }
-
     private async getRecordsToFetchAuditDataFor(
         primaryEntityMetadata: DataversePrimaryEntityMetadata,
         primaryEntityId: string
@@ -75,10 +70,7 @@ export class DataverseController implements IDataverseController {
             primaryEntity: {
                 logicalName: primaryEntityMetadata.logicalName,
                 id: primaryEntityId,
-                select: [
-                    primaryEntityMetadata.idField,
-                    primaryEntityMetadata.primaryNameField,
-                ],
+                select: [primaryEntityMetadata.idField],
             },
             relationships: this.buildRelationshipQuery(
                 primaryEntityMetadata.relationships
@@ -98,10 +90,7 @@ export class DataverseController implements IDataverseController {
         for (const relationship of relationshipsMetadata) {
             relationshipQueries.push({
                 relationshipName: relationship.schemaName,
-                select: [
-                    relationship.relatedEntityMetadata.idField,
-                    relationship.relatedEntityMetadata.primaryNameField,
-                ],
+                select: [relationship.relatedEntityMetadata.idField],
             });
         }
         return relationshipQueries;
@@ -115,10 +104,6 @@ export class DataverseController implements IDataverseController {
             id: this.tryGetEntityAttribute<string>(
                 entityResponse,
                 primaryEntityMetadata.idField
-            ),
-            primaryNameFieldValue: this.tryGetEntityAttribute<string>(
-                entityResponse,
-                primaryEntityMetadata.primaryNameField
             ),
             metadata: primaryEntityMetadata,
         };
@@ -136,10 +121,6 @@ export class DataverseController implements IDataverseController {
                     id: this.tryGetEntityAttribute<string>(
                         relatedEntity,
                         entityMetadata.idField
-                    ),
-                    primaryNameFieldValue: this.tryGetEntityAttribute<string>(
-                        relatedEntity,
-                        entityMetadata.primaryNameField
                     ),
                     metadata: entityMetadata,
                 });
@@ -169,25 +150,4 @@ export class DataverseController implements IDataverseController {
             );
         }
     }
-
-    // private static isDataverseEntity(
-    //     entity: unknown
-    // ): entity is _dataverseEntityMetadata {
-    //     return (
-    //         entity !== null && typeof entity === "object" && "idField" in entity
-    //     );
-    // }
-
-    //     for (const relatedEntity of this._relatedEntities) {
-    //         const relatedEntityRecords = res[relatedEntity.relationshipName] as
-    //             | Record<string, string>[]
-    //             | null;
-    //         if (relatedEntityRecords === null) {
-    //             continue;
-    //         }
-
-    //         relatedEntity.entityIds = relatedEntityRecords.map(
-    //             (entity) => entity[relatedEntity.idColumn]
-    //         );
-    //     }
 }

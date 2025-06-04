@@ -1,102 +1,67 @@
 import {
-    _dataverseEntityMetadata,
-    _entityMetadata,
-    _relationshipMetadata,
-} from "./cached_dataverse_metadata";
-import {
     DataverseEntityMetadata,
     DataversePrimaryEntityMetadata,
     DataverseRelationshipMetadata,
 } from "./dataverseMetadataTypes";
 
-/**
- * Class to interact with the auto-generated schema dictionary
- */
 export class Schema {
     public static getPrimaryEntityMetadata(
-        entityLogicalName: string
-    ): DataversePrimaryEntityMetadata | null {
-        const primaryEntityMetadata = this.getEntityMetadata(entityLogicalName);
-        if (primaryEntityMetadata === null) {
-            return null;
-        }
+        entityLogicalName: string,
+        relationshipNames: string,
+        relatedEntityLogicalNames: string
+    ): DataversePrimaryEntityMetadata {
+        const primaryEntityMetadata =
+            this.BuildEntityMetadata(entityLogicalName);
+
         const relationshipData = this.buildRelationshipMetadata(
-            primaryEntityMetadata
+            relationshipNames,
+            relatedEntityLogicalNames
         );
 
         return {
             logicalName: primaryEntityMetadata.logicalName,
-            displayName: primaryEntityMetadata.displayName,
             idField: primaryEntityMetadata.idField,
-            primaryNameField: primaryEntityMetadata.primaryNameField,
-            attributes: primaryEntityMetadata.attributes,
             relationships: relationshipData,
         };
     }
 
-    private static getEntityMetadata(
+    private static BuildEntityMetadata(
         entityLogicalName: string
-    ): DataverseEntityMetadata | null {
-        const cachedMetadata = _entityMetadata[entityLogicalName];
-        if (
-            cachedMetadata === undefined ||
-            !this.isDataverseEntity(cachedMetadata)
-        ) {
-            return null;
-        }
+    ): DataverseEntityMetadata {
         return {
-            logicalName: cachedMetadata.logicalName,
-            displayName: cachedMetadata.displayName,
-            idField: cachedMetadata.idField,
-            primaryNameField: cachedMetadata.primaryNameField,
-            attributes: cachedMetadata.attributes,
+            logicalName: entityLogicalName,
+            idField: `${entityLogicalName}id`,
         };
     }
 
     private static buildRelationshipMetadata(
-        primaryEntityMetadata: DataverseEntityMetadata
+        relationshipNames: string,
+        relatedEntities: string
     ): DataverseRelationshipMetadata[] {
-        const relationships: DataverseRelationshipMetadata[] = [];
-        for (const relationshipMetadataItem of _relationshipMetadata) {
-            let relatedEntityLogicalName: string | undefined = undefined;
+        const relationshipNamesArray = this.csvToArray(relationshipNames);
+        const relatedEntitiesArray = this.csvToArray(relatedEntities);
 
-            if (
-                relationshipMetadataItem.entity1 ==
-                primaryEntityMetadata.logicalName
-            ) {
-                relatedEntityLogicalName = relationshipMetadataItem.entity2;
-            }
-
-            // Do not include relationship if entity is on N side of 1:N
-            // relationship!
-            if (
-                relationshipMetadataItem.relationshipType == "N:N" &&
-                relationshipMetadataItem.entity2 ==
-                    primaryEntityMetadata.logicalName
-            ) {
-                relatedEntityLogicalName = relationshipMetadataItem.entity1;
-            }
-
-            if (relatedEntityLogicalName !== undefined) {
-                const relatedEntity = this.getEntityMetadata(
-                    relatedEntityLogicalName
-                );
-                if (relatedEntity !== null) {
-                    relationships.push({
-                        schemaName: relationshipMetadataItem.schemaName,
-                        relatedEntityMetadata: relatedEntity,
-                    });
-                }
-            }
+        if (
+            !relationshipNamesArray?.length ||
+            relationshipNamesArray.length !== relatedEntitiesArray.length
+        ) {
+            throw new Error(
+                "There must be a 1 to 1 mapping between relationship names " +
+                    "and related entities"
+            );
         }
-        return relationships;
+
+        return relationshipNamesArray.map((relationshipName, i) => {
+            return {
+                schemaName: relationshipName,
+                relatedEntityMetadata: this.BuildEntityMetadata(
+                    relatedEntitiesArray[i]
+                ),
+            };
+        });
     }
 
-    private static isDataverseEntity(
-        entity: unknown
-    ): entity is _dataverseEntityMetadata {
-        return (
-            entity !== null && typeof entity === "object" && "idField" in entity
-        );
+    private static csvToArray(csv: string) {
+        return csv.split(",").map((e) => e.trim());
     }
 }

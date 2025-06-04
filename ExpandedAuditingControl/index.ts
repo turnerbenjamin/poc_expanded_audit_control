@@ -50,6 +50,9 @@ export class ExpandedAuditingControl
 {
     private _primaryEntityLogicalName: string;
     private _primaryEntityId: string;
+    private _relationshipNames: string;
+    private _relatedEntities: string;
+
     private _dataverseService: IDataverseService;
     private _dataverseController: IDataverseController;
 
@@ -79,6 +82,9 @@ export class ExpandedAuditingControl
         this._primaryEntityLogicalName =
             context.parameters.primaryEntityLogicalName.raw ?? "";
         this._primaryEntityId = context.parameters.primaryEntityId.raw ?? "";
+        this._relationshipNames =
+            context.parameters.RelationshipNames.raw ?? "";
+        this._relatedEntities = context.parameters.RelatedEntityNames.raw ?? "";
     }
 
     /**
@@ -93,6 +99,8 @@ export class ExpandedAuditingControl
             dataverseController: this._dataverseController,
             primaryEntityLogicalName: this._primaryEntityLogicalName,
             primaryEntityId: this._primaryEntityId,
+            relationshipNames: this._relationshipNames,
+            relatedEntityNames: this._relatedEntities,
         });
     }
 

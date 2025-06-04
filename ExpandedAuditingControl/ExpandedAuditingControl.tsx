@@ -7,6 +7,8 @@ export interface ExpandedAuditViewProps {
   dataverseController: IDataverseController;
   primaryEntityLogicalName: string;
   primaryEntityId : string;
+  relationshipNames : string;
+  relatedEntityNames : string;
 }
 
 export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = (props) => {
@@ -18,7 +20,9 @@ export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = (props) => {
       try {
         const tableData = await props.dataverseController.GetExpandedAuditRecords(
           props.primaryEntityLogicalName,
-          props.primaryEntityId
+          props.primaryEntityId,
+          props.relationshipNames,
+          props.relatedEntityNames
         );
         setRowData(tableData.rowData);
       } catch (error) {

@@ -10,8 +10,7 @@
     "rebuild": "pcf-scripts rebuild",
     "start": "pcf-scripts start",
     "start:watch": "pcf-scripts start watch",
-    "refreshTypes": "pcf-scripts refreshTypes",
-    "buildSchema": "dotnet run --project SchemaBuilder/SchemaBuilder.csproj"
+    "refreshTypes": "pcf-scripts refreshTypes"
   },
   "dependencies": {
     "react": "16.14.0",

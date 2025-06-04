@@ -10,10 +10,7 @@ export interface DataverseRelationshipMetadata {
 
 export interface DataverseEntityMetadata {
     logicalName: string;
-    displayName: string;
     idField: string;
-    primaryNameField: string;
-    attributes: Record<string, DataverseAttributeMetadata>;
 }
 
 export interface DataversePrimaryEntityMetadata

@@ -29,8 +29,8 @@ export class AuditTableRowData {
         this.changedBy = auditRecord.userid.fullname;
         this.event =
             auditRecord["action@OData.Community.Display.V1.FormattedValue"];
-        this.entityDisplayName = entity.metadata.displayName;
-        this.entityPrimaryKeyValue = entity.primaryNameFieldValue;
+        this.entityDisplayName = entity.metadata.logicalName;
+        this.entityPrimaryKeyValue = entity.metadata.logicalName;
         this.changedField = "";
         this.oldValue = "";
         this.newValue = "";
@@ -53,10 +53,8 @@ export class AuditTableRowData {
         const oldValues: string[] = [];
         const newValues: string[] = [];
         for (const changeDataItem of changeData.changedAttributes) {
-            const updateData: UpdateData | null = this.parseChangeDataItem(
-                changeDataItem,
-                entity
-            );
+            const updateData: UpdateData | null =
+                this.parseChangeDataItem(changeDataItem);
             if (updateData == null) {
                 console.error("Failed to parse update data");
                 continue;
@@ -90,8 +88,7 @@ export class AuditTableRowData {
     }
 
     private parseChangeDataItem(
-        changeMade: UpdateActionChange,
-        entity: DataverseEntity
+        changeMade: UpdateActionChange
     ): UpdateData | null {
         if (
             changeMade?.logicalName === null ||
@@ -102,12 +99,7 @@ export class AuditTableRowData {
             return null;
         }
 
-        const changedField =
-            entity.metadata.attributes[changeMade.logicalName]?.label;
-        if (changedField === undefined) {
-            console.error("Failed to fetch entity logical name");
-            return null;
-        }
+        const changedField = changeMade.logicalName;
 
         return {
             changedField: changedField,

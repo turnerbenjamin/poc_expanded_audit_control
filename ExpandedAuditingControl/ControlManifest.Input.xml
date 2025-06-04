@@ -3,7 +3,7 @@
   <control 
     namespace="ExpandedAuditingControl" 
     constructor="ExpandedAuditingControl" 
-    version="0.0.20" 
+    version="0.0.21" 
     display-name-key="ExpandedAuditingControl" 
     description-key="ExpandedAuditingControl description" 
     control-type="virtual" >
@@ -25,6 +25,20 @@
       name="primaryEntityId" 
       display-name-key="Primary Entity ID" 
       description-key="Guid for the primary entity" 
+      of-type="SingleLine.Text" 
+      usage="input" 
+      required="true" />
+    <property 
+      name="RelationshipNames" 
+      display-name-key="Relationship Names" 
+      description-key="Comma-separated relationship names" 
+      of-type="SingleLine.Text" 
+      usage="input" 
+      required="true" />
+    <property 
+      name="RelatedEntityNames" 
+      display-name-key="Related Entity Names" 
+      description-key="Comma-separated related entity names" 
       of-type="SingleLine.Text" 
       usage="input" 
       required="true" />
