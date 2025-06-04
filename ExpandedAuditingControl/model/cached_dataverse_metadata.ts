@@ -1,7 +1,7 @@
 /**
  * Auto-generated TypeScript schema dictionary for Dataverse entities
  * and relationships
- * Generated on: 2025-06-03 06:38:26
+ * Generated on: 2025-06-04 08:11:56
  */
 
 export interface _dataverseAttributeMetadata {

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using SchemaBuilder.Config;
 using SchemaBuilder.Logger;
 using SchemaBuilder.Model;
@@ -18,20 +20,26 @@ namespace SchemaBuilder
             "ardea_venue",
         };
 
-        public static void Main()
+        public static async Task Main(string[] args)
         {
             var logger = new ConsoleLogger();
 
             try
             {
-                string projectDirectory = Path.GetDirectoryName(
-                    System.Reflection.Assembly.GetExecutingAssembly().Location
+                if (args == null || args.Length != 1)
+                {
+                    throw new ArgumentNullException(
+                        nameof(args),
+                        "Pass instance url as the first argument, e.g. npm "
+                            + "run schemaBuilder https://{ORG}.crm11.dynamics.com/"
+                    );
+                }
+
+                var instanceUri = args[0];
+                var organisationService = await OrganisationServiceFactory.BuildWithInteractiveAuth(
+                    instanceUri,
+                    logger
                 );
-
-                string dotEnvFilePath = Path.Combine(projectDirectory, ".env");
-                var appConfig = new AppConfig(dotEnvFilePath);
-
-                var organisationService = OrganisationServiceFactory.Build(appConfig, logger);
 
                 var metadataService = new MetadataService(organisationService);
 

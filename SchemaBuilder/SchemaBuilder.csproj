@@ -8,6 +8,7 @@
     <ItemGroup>
 <None Include=".env" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.CrmSdk.XrmTooling.CoreAssembly" Version="9.1.1.65" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.72.1" />
     <PackageReference Include="Microsoft.PowerPlatform.Dataverse.Client" Version="1.2.7" />
     <PackageReference Include="System.Text.Json" Version="9.0.4" />
   </ItemGroup>
