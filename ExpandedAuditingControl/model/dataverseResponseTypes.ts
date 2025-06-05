@@ -5,13 +5,14 @@ export interface AuditRecord {
     userid: {
         fullname: string;
     };
-    objecttypecode: string;
     _objectid_value: string;
 
     // Formatted action name
     "action@OData.Community.Display.V1.FormattedValue": string;
     // Formatted date value
     "createdon@OData.Community.Display.V1.FormattedValue": string;
+    // Formatted entity display name
+    "objecttypecode@OData.Community.Display.V1.FormattedValue": string;
 }
 
 export interface AuditRecordsResponse {

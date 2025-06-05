@@ -1,11 +1,12 @@
+import { IAttributeMetadataCollection } from "../model/attributeMetadataCollection";
 import { AuditTableData } from "../model/auditTableData";
-import { DataverseEntity } from "../model/dataverseEntityTypes";
 import {
-    DataversePrimaryEntityMetadata,
-    DataverseRelationshipMetadata,
-} from "../model/dataverseMetadataTypes";
+    DataverseEntityReference,
+    DataversePrimaryEntityDefinition,
+    DataverseRelationshipDefinition,
+} from "../model/dataverseEntityTypes";
 import { AuditRecordsResponse } from "../model/dataverseResponseTypes";
-import { Schema } from "../model/schema";
+import { PrimaryEntityDefinitionBuilder } from "../model/primaryEntityDefinitionBuilder";
 import { IDataverseService } from "../service/dataverseService";
 import {
     GetRecordAndRelatedRecordsQuery,
@@ -13,48 +14,44 @@ import {
 } from "../service/dataverseServiceTypes";
 
 export interface IDataverseController {
-    GetExpandedAuditRecords(
+    getRecordAndRelatedRecords(
         entityLogicalName: string,
         entityId: string,
         relationshipNames: string,
         relatedEntityNames: string
+    ): Promise<DataverseEntityReference[]>;
+
+    GetExpandedAuditRecords(
+        recordsToFetchAuditDataFor: DataverseEntityReference[]
     ): Promise<AuditTableData>;
 }
 
 export class DataverseController implements IDataverseController {
     private readonly _service: IDataverseService;
+    private readonly _attributeMetadataStore: IAttributeMetadataCollection;
 
-    public constructor(dataverseService: IDataverseService) {
+    public constructor(
+        dataverseService: IDataverseService,
+        attributeMetadataCollection: IAttributeMetadataCollection
+    ) {
         this._service = dataverseService;
+        this._attributeMetadataStore = attributeMetadataCollection;
     }
 
     public async GetExpandedAuditRecords(
-        entityLogicalName: string,
-        entityId: string,
-        relationshipNames: string,
-        relatedEntityNames: string
+        recordsToFetchAuditDataFor: DataverseEntityReference[]
     ): Promise<AuditTableData> {
         try {
-            const primaryEntityMetadata: DataversePrimaryEntityMetadata =
-                Schema.getPrimaryEntityMetadata(
-                    entityLogicalName,
-                    relationshipNames,
-                    relatedEntityNames
-                );
-
-            const recordsToFetchAuditDataFor =
-                await this.getRecordsToFetchAuditDataFor(
-                    primaryEntityMetadata,
-                    entityId
-                );
-
             const res: AuditRecordsResponse =
                 await this._service.fetchAuditData(recordsToFetchAuditDataFor);
 
             const auditTableData = new AuditTableData(
                 res.entities,
-                recordsToFetchAuditDataFor
+                recordsToFetchAuditDataFor,
+                this._attributeMetadataStore,
+                this._service.fetchEntityMetadata.bind(this._service)
             );
+            await auditTableData.refreshMetadata.bind(auditTableData)();
             return auditTableData;
         } catch (error) {
             console.error("Error retrieving entity relationships:", error);
@@ -62,67 +59,89 @@ export class DataverseController implements IDataverseController {
         }
     }
 
-    private async getRecordsToFetchAuditDataFor(
-        primaryEntityMetadata: DataversePrimaryEntityMetadata,
-        primaryEntityId: string
-    ): Promise<DataverseEntity[]> {
-        const req: GetRecordAndRelatedRecordsQuery = {
-            primaryEntity: {
-                logicalName: primaryEntityMetadata.logicalName,
-                id: primaryEntityId,
-                select: [primaryEntityMetadata.idField],
-            },
-            relationships: this.buildRelationshipQuery(
-                primaryEntityMetadata.relationships
-            ),
-        };
-        const res = await this._service.getRecordAndRelatedRecords(req);
+    public async getRecordAndRelatedRecords(
+        entityLogicalName: string,
+        entityId: string,
+        relationshipNames: string,
+        relatedEntityNames: string
+    ) {
+        const primaryEntityDefinition: DataversePrimaryEntityDefinition =
+            PrimaryEntityDefinitionBuilder.getPrimaryEntityDefinition(
+                entityLogicalName,
+                relationshipNames,
+                relatedEntityNames
+            );
+
+        const entityResponse =
+            await this.executeGetRecordAndRelatedRecordsRequest(
+                primaryEntityDefinition,
+                entityId
+            );
+
         return this.parseEntitiesFromWebApiEntityResponse(
-            primaryEntityMetadata,
-            res
+            primaryEntityDefinition,
+            entityResponse
         );
     }
 
+    private async executeGetRecordAndRelatedRecordsRequest(
+        primaryEntityDefinition: DataversePrimaryEntityDefinition,
+        primaryEntityId: string
+    ): Promise<ComponentFramework.WebApi.Entity> {
+        const req: GetRecordAndRelatedRecordsQuery = {
+            primaryEntity: {
+                logicalName: primaryEntityDefinition.logicalName,
+                id: primaryEntityId,
+                select: [primaryEntityDefinition.idField],
+            },
+            relationships: this.buildRelationshipQuery(
+                primaryEntityDefinition.relationshipDefinitions
+            ),
+        };
+        return await this._service.getRecordAndRelatedRecords(req);
+    }
+
     private buildRelationshipQuery(
-        relationshipsMetadata: DataverseRelationshipMetadata[]
+        relationshipsMetadata: DataverseRelationshipDefinition[]
     ): RelationshipQuery[] {
         const relationshipQueries: RelationshipQuery[] = [];
         for (const relationship of relationshipsMetadata) {
             relationshipQueries.push({
                 relationshipName: relationship.schemaName,
-                select: [relationship.relatedEntityMetadata.idField],
+                select: [relationship.entityDefinition.idField],
             });
         }
         return relationshipQueries;
     }
 
     private parseEntitiesFromWebApiEntityResponse(
-        primaryEntityMetadata: DataversePrimaryEntityMetadata,
+        primaryEntityDefinition: DataversePrimaryEntityDefinition,
         entityResponse: ComponentFramework.WebApi.Entity
-    ): DataverseEntity[] {
-        const PrimaryEntity: DataverseEntity = {
+    ): DataverseEntityReference[] {
+        const PrimaryEntity: DataverseEntityReference = {
             id: this.tryGetEntityAttribute<string>(
                 entityResponse,
-                primaryEntityMetadata.idField
+                primaryEntityDefinition.idField
             ),
-            metadata: primaryEntityMetadata,
+            logicalName: primaryEntityDefinition.logicalName,
         };
         const entities = [PrimaryEntity];
 
-        for (const relationshipMetadataItem of primaryEntityMetadata.relationships) {
+        for (const relationshipDefinition of primaryEntityDefinition.relationshipDefinitions) {
             const relatedEntities = this.tryGetEntityAttribute<
                 Record<string, string>[]
-            >(entityResponse, relationshipMetadataItem.schemaName);
+            >(entityResponse, relationshipDefinition.schemaName);
 
             for (const relatedEntity of relatedEntities) {
-                const entityMetadata =
-                    relationshipMetadataItem.relatedEntityMetadata;
+                const relatedEntityDefinition =
+                    relationshipDefinition.entityDefinition;
+
                 entities.push({
                     id: this.tryGetEntityAttribute<string>(
                         relatedEntity,
-                        entityMetadata.idField
+                        relatedEntityDefinition.idField
                     ),
-                    metadata: entityMetadata,
+                    logicalName: relatedEntityDefinition.logicalName,
                 });
             }
         }

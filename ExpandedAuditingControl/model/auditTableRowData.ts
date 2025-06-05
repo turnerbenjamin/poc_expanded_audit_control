@@ -1,110 +1,38 @@
-import { DataverseEntity } from "./dataverseEntityTypes";
-import {
-    AuditRecord,
-    UpdateActionChange,
-    UpdateActionChangeData,
-} from "./dataverseResponseTypes";
-
-interface UpdateData {
-    changedField: string;
-    oldValue: string;
-    newValue: string;
-}
+import { ChangeDataItem, ChangeDataBuilder } from "./changeDataBuilder";
+import { DataverseEntityReference } from "./dataverseEntityTypes";
+import { AuditRecord } from "./dataverseResponseTypes";
 
 export class AuditTableRowData {
     public id: string;
     public formattedDate: string;
     public changedBy: string;
     public event: string;
+    public entityReference: DataverseEntityReference;
     public entityDisplayName: string;
-    public entityPrimaryKeyValue: string;
-    public changedField: string;
-    public oldValue: string;
-    public newValue: string;
+    public changeData: ChangeDataItem[] | undefined | null;
 
-    public constructor(auditRecord: AuditRecord, entity: DataverseEntity) {
+    public constructor(
+        auditRecord: AuditRecord,
+        entity: DataverseEntityReference
+    ) {
         this.id = auditRecord.auditid;
+
         this.formattedDate =
             auditRecord["createdon@OData.Community.Display.V1.FormattedValue"];
         this.changedBy = auditRecord.userid.fullname;
         this.event =
             auditRecord["action@OData.Community.Display.V1.FormattedValue"];
-        this.entityDisplayName = entity.metadata.logicalName;
-        this.entityPrimaryKeyValue = entity.metadata.logicalName;
-        this.changedField = "";
-        this.oldValue = "";
-        this.newValue = "";
 
-        this.processChangeData(auditRecord, entity);
-    }
+        this.entityReference = entity;
 
-    private processChangeData(
-        auditRecord: AuditRecord,
-        entity: DataverseEntity
-    ) {
-        const updateAction = 2;
-        if (auditRecord.action !== updateAction) {
-            return;
-        }
+        this.entityDisplayName =
+            auditRecord[
+                "objecttypecode@OData.Community.Display.V1.FormattedValue"
+            ];
 
-        const changeData = this.tryParseChangeData(auditRecord?.changedata);
-
-        const changedFields: string[] = [];
-        const oldValues: string[] = [];
-        const newValues: string[] = [];
-        for (const changeDataItem of changeData.changedAttributes) {
-            const updateData: UpdateData | null =
-                this.parseChangeDataItem(changeDataItem);
-            if (updateData == null) {
-                console.error("Failed to parse update data");
-                continue;
-            }
-            changedFields.push(updateData.changedField);
-            oldValues.push(updateData.oldValue);
-            newValues.push(updateData.newValue);
-        }
-        this.changedField = changedFields.join("{br}");
-        this.oldValue = oldValues.join("{br}");
-        this.newValue = newValues.join("{br}");
-    }
-
-    private tryParseChangeData(
-        changeDataString: string
-    ): UpdateActionChangeData {
-        const parsedChangeData = JSON.parse(
-            changeDataString
-        ) as UpdateActionChangeData;
-        const changedAttributes = parsedChangeData?.changedAttributes;
-        if (
-            changedAttributes === null ||
-            !Array.isArray(changedAttributes) ||
-            changedAttributes.length < 0
-        ) {
-            throw new Error(
-                `Unable to parse change data (${changeDataString})`
-            );
-        }
-        return parsedChangeData;
-    }
-
-    private parseChangeDataItem(
-        changeMade: UpdateActionChange
-    ): UpdateData | null {
-        if (
-            changeMade?.logicalName === null ||
-            changeMade?.oldValue === null ||
-            changeMade?.newValue === null
-        ) {
-            console.error("Failed to parse change", changeMade);
-            return null;
-        }
-
-        const changedField = changeMade.logicalName;
-
-        return {
-            changedField: changedField,
-            oldValue: changeMade.oldValue,
-            newValue: changeMade.newValue,
-        };
+        this.changeData = ChangeDataBuilder.Parse(
+            auditRecord.changedata,
+            auditRecord.action
+        );
     }
 }

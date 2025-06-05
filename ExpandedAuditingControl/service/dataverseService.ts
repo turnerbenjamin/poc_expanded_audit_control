@@ -1,4 +1,11 @@
-import { DataverseEntity } from "../model/dataverseEntityTypes";
+import {
+    DataverseAttributeDefinition,
+    DataverseEntityReference,
+} from "../model/dataverseEntityTypes";
+import {
+    DataverseAttributeMetadataRequest,
+    DataverseAttributeMetadataResponse,
+} from "../model/dataverseRequestAndResponseTypes";
 import { AuditRecordsResponse } from "../model/dataverseResponseTypes";
 import {
     GetRecordAndRelatedRecordsQuery,
@@ -10,14 +17,51 @@ export interface IDataverseService {
         query: GetRecordAndRelatedRecordsQuery
     ): Promise<ComponentFramework.WebApi.Entity>;
 
-    fetchAuditData(entities: DataverseEntity[]): Promise<AuditRecordsResponse>;
+    fetchAuditData(
+        entities: DataverseEntityReference[]
+    ): Promise<AuditRecordsResponse>;
+
+    fetchEntityMetadata(
+        request: DataverseAttributeMetadataRequest
+    ): Promise<DataverseAttributeDefinition[]>;
 }
 
 export class DataverseService implements IDataverseService {
     private readonly _webApi: ComponentFramework.WebApi;
+    private readonly _utils: ComponentFramework.Utility;
 
-    public constructor(webApi: ComponentFramework.WebApi) {
+    public constructor(
+        webApi: ComponentFramework.WebApi,
+        utils: ComponentFramework.Utility
+    ) {
         this._webApi = webApi;
+        this._utils = utils;
+    }
+
+    public async fetchEntityMetadata(
+        request: DataverseAttributeMetadataRequest
+    ): Promise<DataverseAttributeDefinition[]> {
+        const metadata = (await this._utils.getEntityMetadata(
+            request.entityLogicalName,
+            [...request.attributeLogicalNames]
+        )) as DataverseAttributeMetadataResponse;
+
+        if (metadata.Attributes === undefined) {
+            throw new Error(
+                `Unable to retrieve metadata for ${request.entityLogicalName}`
+            );
+        }
+
+        const dataverseAttributes: DataverseAttributeDefinition[] = [];
+        for (const attributeLogicalName of request.attributeLogicalNames) {
+            const attributeMetadata =
+                metadata.Attributes.getByName(attributeLogicalName);
+            dataverseAttributes.push({
+                logicalName: attributeMetadata.LogicalName,
+                displayName: attributeMetadata.DisplayName,
+            });
+        }
+        return dataverseAttributes;
     }
 
     public async getRecordAndRelatedRecords(
@@ -35,7 +79,7 @@ export class DataverseService implements IDataverseService {
     }
 
     public async fetchAuditData(
-        entities: DataverseEntity[]
+        entities: DataverseEntityReference[]
     ): Promise<AuditRecordsResponse> {
         const entityIds = entities.map((e) => e.id);
 
@@ -45,7 +89,9 @@ export class DataverseService implements IDataverseService {
 
         const res = await this._webApi.retrieveMultipleRecords(
             "audit",
-            `?$expand=userid($select=fullname)&$filter=Microsoft.Dynamics.CRM.In(PropertyName='objectid',PropertyValues=${recordIdsValue})`
+            `?$expand=userid($select=fullname)` +
+                `&$filter=Microsoft.Dynamics.CRM.In(PropertyName='objectid',PropertyValues=${recordIdsValue})` +
+                `&$orderby=createdon desc`
         );
 
         return res as AuditRecordsResponse;

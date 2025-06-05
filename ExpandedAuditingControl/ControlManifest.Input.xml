@@ -3,7 +3,7 @@
   <control 
     namespace="ExpandedAuditingControl" 
     constructor="ExpandedAuditingControl" 
-    version="0.0.21" 
+    version="0.0.46" 
     display-name-key="ExpandedAuditingControl" 
     description-key="ExpandedAuditingControl description" 
     control-type="virtual" >
@@ -49,6 +49,7 @@
     </resources>
     <feature-usage>
       <uses-feature name="WebAPI" required="true" />
+      <uses-feature name="Utility" required="true" />
     </feature-usage>
   </control>
 </manifest>

@@ -1,43 +1,43 @@
 import {
-    DataverseEntityMetadata,
-    DataversePrimaryEntityMetadata,
-    DataverseRelationshipMetadata,
-} from "./dataverseMetadataTypes";
+    DataverseEntityDefinition,
+    DataversePrimaryEntityDefinition,
+    DataverseRelationshipDefinition,
+} from "./dataverseEntityTypes";
 
-export class Schema {
-    public static getPrimaryEntityMetadata(
+export class PrimaryEntityDefinitionBuilder {
+    public static getPrimaryEntityDefinition(
         entityLogicalName: string,
         relationshipNames: string,
         relatedEntityLogicalNames: string
-    ): DataversePrimaryEntityMetadata {
-        const primaryEntityMetadata =
-            this.BuildEntityMetadata(entityLogicalName);
+    ): DataversePrimaryEntityDefinition {
+        const primaryEntityReference =
+            this.BuildEntityDefinition(entityLogicalName);
 
-        const relationshipData = this.buildRelationshipMetadata(
+        const relationshipData = this.buildRelationshipReferences(
             relationshipNames,
             relatedEntityLogicalNames
         );
 
         return {
-            logicalName: primaryEntityMetadata.logicalName,
-            idField: primaryEntityMetadata.idField,
-            relationships: relationshipData,
+            logicalName: primaryEntityReference.logicalName,
+            idField: primaryEntityReference.idField,
+            relationshipDefinitions: relationshipData,
         };
     }
 
-    private static BuildEntityMetadata(
+    private static BuildEntityDefinition(
         entityLogicalName: string
-    ): DataverseEntityMetadata {
+    ): DataverseEntityDefinition {
         return {
             logicalName: entityLogicalName,
             idField: `${entityLogicalName}id`,
         };
     }
 
-    private static buildRelationshipMetadata(
+    private static buildRelationshipReferences(
         relationshipNames: string,
         relatedEntities: string
-    ): DataverseRelationshipMetadata[] {
+    ): DataverseRelationshipDefinition[] {
         const relationshipNamesArray = this.csvToArray(relationshipNames);
         const relatedEntitiesArray = this.csvToArray(relatedEntities);
 
@@ -54,7 +54,7 @@ export class Schema {
         return relationshipNamesArray.map((relationshipName, i) => {
             return {
                 schemaName: relationshipName,
-                relatedEntityMetadata: this.BuildEntityMetadata(
+                entityDefinition: this.BuildEntityDefinition(
                     relatedEntitiesArray[i]
                 ),
             };

@@ -1,6 +1,24 @@
-import { DataverseEntityMetadata } from "./dataverseMetadataTypes";
+export interface DataverseAttributeDefinition {
+    logicalName: string;
+    displayName: string;
+}
 
-export interface DataverseEntity {
+export interface DataverseRelationshipDefinition {
+    schemaName: string;
+    entityDefinition: DataverseEntityDefinition;
+}
+
+export interface DataverseEntityDefinition {
+    idField: string;
+    logicalName: string;
+}
+
+export interface DataversePrimaryEntityDefinition
+    extends DataverseEntityDefinition {
+    relationshipDefinitions: DataverseRelationshipDefinition[];
+}
+
+export interface DataverseEntityReference {
     id: string;
-    metadata: DataverseEntityMetadata;
+    logicalName: string;
 }

@@ -1,101 +1,102 @@
-import * as React from 'react';
-import { Divider, Spinner, Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow} from '@fluentui/react-components';
-import { IDataverseController } from './controller/dataverseController';
-import { AuditTableRowData } from './model/auditTableRowData';
+import * as React from "react";
+import { Divider, Spinner } from "@fluentui/react-components";
+import { IDataverseController } from "./controller/dataverseController";
+import { AuditTableData } from "./model/auditTableData";
+import { DataverseEntityReference } from "./model/dataverseEntityTypes";
+import { AuditDataTable } from "./components/AuditDataTable";
 
 export interface ExpandedAuditViewProps {
-  dataverseController: IDataverseController;
-  primaryEntityLogicalName: string;
-  primaryEntityId : string;
-  relationshipNames : string;
-  relatedEntityNames : string;
+    dataverseController: IDataverseController;
+    primaryEntityLogicalName: string;
+    primaryEntityId: string;
+    relationshipNames: string;
+    relatedEntityNames: string;
+    onClickEntityReference: (
+        entityReference: DataverseEntityReference | null
+    ) => Promise<void>;
 }
 
 export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = (props) => {
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [rowData, setRowData] = React.useState<AuditTableRowData[]>([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [recordReferences, setRecordReferences] = React.useState<
+        DataverseEntityReference[] | null
+    >(null);
+    const [tableData, setTableData] = React.useState<AuditTableData | null>(
+        null
+    );
 
-  React.useEffect(() => {
-    const fetchRelationships = async () => {
-      try {
-        const tableData = await props.dataverseController.GetExpandedAuditRecords(
-          props.primaryEntityLogicalName,
-          props.primaryEntityId,
-          props.relationshipNames,
-          props.relatedEntityNames
-        );
-        setRowData(tableData.rowData);
-      } catch (error) {
-        console.error("Error fetching relationships:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    void fetchRelationships();
-  }, [props.dataverseController, props.primaryEntityLogicalName, props.primaryEntityId]);
+    // Retrieve primary record and related records
+    React.useEffect(() => {
+        setIsLoading(true);
+        const fetchRecordReferences = async () => {
+            try {
+                setRecordReferences(
+                    await props.dataverseController.getRecordAndRelatedRecords(
+                        props.primaryEntityLogicalName,
+                        props.primaryEntityId,
+                        props.relationshipNames,
+                        props.relatedEntityNames
+                    )
+                );
+            } catch (error) {
+                console.error(
+                    "Error fetching record and related records",
+                    error
+                );
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        void fetchRecordReferences();
+    }, [
+        props.dataverseController,
+        props.primaryEntityLogicalName,
+        props.primaryEntityId,
+        props.relationshipNames,
+        props.relatedEntityNames,
+    ]);
 
-if(isLoading){
-  return (
-    <Spinner size="extra-large"/>
-  );
-}
+    // Retrieve audit data for the primary record and related records
+    React.useEffect(() => {
+        setIsLoading(true);
+        const fetchAuditRecords = async (
+            records: DataverseEntityReference[]
+        ) => {
+            try {
+                const tableData =
+                    await props.dataverseController.GetExpandedAuditRecords(
+                        records
+                    );
+                setTableData(tableData);
+            } catch (error) {
+                console.error("Error fetching relationships:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        if (recordReferences != null) {
+            void fetchAuditRecords(recordReferences);
+        }
+    }, [recordReferences]);
 
-const columns = [
-  "Date", 
-  "Changed By", 
-  "Record", 
-  "Event", 
-  "Changed Field", 
-  "Old Value", 
-  "New Value"
-];
-
-const cellStyle = {
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  width: "fit-content",
-  padding: "2px 4px",
-  textAlign: "left" as const,
-};
-
-return (
-  <Divider style={{width: "100%", overflowX: "auto"}}>
-  <Table aria-label='Expanded Audit Table' style={{minWidth: "769px", width: "100%"}}>
-    <TableHeader>
-      <TableRow>
-        {columns.map(col=> (
-          <TableHeaderCell key={col} style={cellStyle}>{col}</TableHeaderCell>
-        ))}
-      </TableRow>
-    </TableHeader>
-    <TableBody>
-      {rowData.map(row => (
-        <TableRow key = {row.id}>
-          <TableCell style={cellStyle}>{row.formattedDate}</TableCell>
-          <TableCell style={cellStyle}>{row.changedBy}</TableCell>
-          <TableCell style={cellStyle}>{`${row.entityDisplayName} (${row.entityPrimaryKeyValue})`}</TableCell>
-          <TableCell style={cellStyle}>{row.event}</TableCell>
-          <TableCell style={cellStyle}><TextWithLineBreaks text={row.changedField} /></TableCell>
-          <TableCell style={cellStyle}><TextWithLineBreaks text={row.oldValue} /></TableCell>
-          <TableCell style={cellStyle}><TextWithLineBreaks text={row.newValue} /></TableCell>
-        </TableRow>
-      ))}
-    </TableBody>
-  </ Table>
-  </Divider>
-);
-};
-
-const TextWithLineBreaks: React.FC<{ text: string }> = ({ text }) => {
-  return (
-    <>
-      {text.split("{br}").map((segment, index, array) => (
-        <React.Fragment key={index}>
-          {segment}
-          {index < array.length - 1 && <br />}
-        </React.Fragment>
-      ))}
-    </>
-  );
+    return (
+        <Divider
+            style={{
+                width: "100%",
+                overflowX: "auto",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+        >
+            {(isLoading || !tableData) && <Spinner size="extra-large" />}
+            {!isLoading && tableData && (
+                <AuditDataTable
+                    auditTableData={tableData}
+                    onClickEntityReference={props.onClickEntityReference}
+                    primaryEntityId={props.primaryEntityId}
+                />
+            )}
+        </Divider>
+    );
 };
