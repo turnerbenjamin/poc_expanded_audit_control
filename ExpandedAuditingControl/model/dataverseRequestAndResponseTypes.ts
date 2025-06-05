@@ -13,6 +13,8 @@ interface DataverseAttributeMetadataResponseAttributes {
         entityLogicalName: string
     ): DataverseAttributeMetadataResponseAttribute;
 }
+
 export interface DataverseAttributeMetadataResponse {
+    entityLogicalName: string;
     Attributes: DataverseAttributeMetadataResponseAttributes | undefined;
 }

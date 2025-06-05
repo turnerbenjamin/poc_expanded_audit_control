@@ -12,6 +12,11 @@ import {
     RelationshipQuery,
 } from "./dataverseServiceTypes";
 
+export interface EntityAndAttributeMetadata {
+    entityName: string;
+    attributes: DataverseAttributeDefinition[];
+}
+
 export interface IDataverseService {
     getRecordAndRelatedRecords(
         query: GetRecordAndRelatedRecordsQuery
@@ -23,7 +28,7 @@ export interface IDataverseService {
 
     fetchEntityMetadata(
         request: DataverseAttributeMetadataRequest
-    ): Promise<DataverseAttributeDefinition[]>;
+    ): Promise<EntityAndAttributeMetadata>;
 }
 
 export class DataverseService implements IDataverseService {
@@ -40,7 +45,7 @@ export class DataverseService implements IDataverseService {
 
     public async fetchEntityMetadata(
         request: DataverseAttributeMetadataRequest
-    ): Promise<DataverseAttributeDefinition[]> {
+    ): Promise<EntityAndAttributeMetadata> {
         const metadata = (await this._utils.getEntityMetadata(
             request.entityLogicalName,
             [...request.attributeLogicalNames]
@@ -61,7 +66,10 @@ export class DataverseService implements IDataverseService {
                 displayName: attributeMetadata.DisplayName,
             });
         }
-        return dataverseAttributes;
+        return {
+            entityName: request.entityLogicalName,
+            attributes: dataverseAttributes,
+        };
     }
 
     public async getRecordAndRelatedRecords(

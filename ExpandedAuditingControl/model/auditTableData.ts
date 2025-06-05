@@ -1,3 +1,4 @@
+import { EntityAndAttributeMetadata } from "../service/dataverseService";
 import { IAttributeMetadataCollection } from "./attributeMetadataCollection";
 import { AuditTableRowData } from "./auditTableRowData";
 import {
@@ -9,7 +10,7 @@ import { AuditRecord } from "./dataverseResponseTypes";
 
 type MetadataGetter = (
     req: DataverseAttributeMetadataRequest
-) => Promise<DataverseAttributeDefinition[]>;
+) => Promise<EntityAndAttributeMetadata>;
 
 export class AuditTableData {
     public rowData: AuditTableRowData[];
@@ -114,11 +115,17 @@ export class AuditTableData {
     private async updateAttributeMetadata(
         requests: DataverseAttributeMetadataRequest[]
     ): Promise<void> {
+        const promises: Promise<EntityAndAttributeMetadata>[] = [];
         for (const request of requests) {
-            const attributes = await this._fetchEntityMetadata(request);
-            for (const attribute of attributes) {
+            promises.push(this._fetchEntityMetadata(request));
+        }
+
+        const responses = await Promise.all(promises);
+
+        for (const entityAndAttributeMetadata of responses) {
+            for (const attribute of entityAndAttributeMetadata.attributes) {
                 this._attributeMetadataStore.SetAttribute(
-                    request.entityLogicalName,
+                    entityAndAttributeMetadata.entityName,
                     attribute
                 );
             }
