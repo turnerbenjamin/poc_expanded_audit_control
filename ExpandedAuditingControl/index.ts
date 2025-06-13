@@ -14,7 +14,8 @@ import {
     AttributeMetadataCollection,
     IAttributeMetadataCollection,
 } from "./model/attributeMetadataCollection";
-import { DataverseEntityReference } from "./model/dataverseEntityTypes";
+import { ControlEntityReference } from "./model/controlTypes";
+import { XrmWebApiExtended } from "./model/XrmWebApiExtended";
 
 export class ExpandedAuditingControl
     implements ComponentFramework.ReactControl<IInputs, IOutputs>
@@ -54,8 +55,9 @@ export class ExpandedAuditingControl
         this._container = container;
         this._context = context;
 
+        const extendedWebApi = context.webAPI as unknown as XrmWebApiExtended;
         this._dataverseService = new DataverseService(
-            context.webAPI,
+            extendedWebApi,
             context.utils
         );
         this._attributeMetadataStore = new AttributeMetadataCollection(
@@ -114,7 +116,7 @@ export class ExpandedAuditingControl
     }
 
     private async navigateToRecord(
-        entityReference: DataverseEntityReference | null
+        entityReference: ControlEntityReference | null
     ): Promise<void> {
         if (!entityReference) {
             return;

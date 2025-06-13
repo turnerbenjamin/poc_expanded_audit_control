@@ -1,35 +1,55 @@
 import { IAttributeMetadataCollection } from "../model/attributeMetadataCollection";
+import { IDataverseService } from "../service/dataverseService";
 import { AuditTableData } from "../model/auditTableData";
 import {
-    DataverseEntityReference,
-    DataversePrimaryEntityDefinition,
-    DataverseRelationshipDefinition,
-} from "../model/dataverseEntityTypes";
-import { AuditRecordsResponse } from "../model/dataverseResponseTypes";
-import { PrimaryEntityDefinitionBuilder } from "../model/primaryEntityDefinitionBuilder";
-import { IDataverseService } from "../service/dataverseService";
+    ServiceFetchAuditDataRequest,
+    ServiceFetchAuditDataResponse,
+    ServiceFetchRecordAndRelatedRecordsResponse,
+} from "../service/serviceRequestAndResponseTypes";
 import {
-    GetRecordAndRelatedRecordsQuery,
-    RelationshipQuery,
-} from "../service/dataverseServiceTypes";
+    ControlOperationalError,
+    ControlEntityReference,
+    ControlPrimaryEntityDefinition,
+} from "../model/controlTypes";
+import { PrimaryEntityDefinitionBuilder } from "../utils/primaryEntityDefinitionBuilder";
+import { extractEntityAndRelatedEntitiesFromEntityResponse } from "../utils/helpers";
+import { ServiceRequestBuilder } from "../utils/serviceRequestBuilder";
 
+/**
+ * Interface for the Dataverse controller which manages retrieving entity
+ * records and their audit history
+ */
 export interface IDataverseController {
-    getRecordAndRelatedRecords(
+    /**
+     * Retrieves expanded audit records for the primary entity and all entities
+     * associated with it through one of the associated relationship names.
+     * @param entityLogicalName The logical name of the primary entity
+     * @param entityId The ID of the primary entity record
+     * @param relationshipNames Comma-separated list of relationship names
+     * @param relatedEntityNames Comma-separated list of related entity names
+     * @returns Audit table containing processed audit records
+     */
+    getExpandedAuditRecords(
         entityLogicalName: string,
         entityId: string,
         relationshipNames: string,
         relatedEntityNames: string
-    ): Promise<DataverseEntityReference[]>;
-
-    GetExpandedAuditRecords(
-        recordsToFetchAuditDataFor: DataverseEntityReference[]
     ): Promise<AuditTableData>;
 }
 
+/**
+ * Controller implementation for retrieving and processing Dataverse entity
+ * records and their associated audit history
+ */
 export class DataverseController implements IDataverseController {
     private readonly _service: IDataverseService;
     private readonly _attributeMetadataStore: IAttributeMetadataCollection;
 
+    /**
+     * Creates a new instance of the DataverseController
+     * @param dataverseService Service for interacting with Dataverse APIs
+     * @param attributeMetadataCollection Repository for attribute metadata
+     */
     public constructor(
         dataverseService: IDataverseService,
         attributeMetadataCollection: IAttributeMetadataCollection
@@ -38,135 +58,102 @@ export class DataverseController implements IDataverseController {
         this._attributeMetadataStore = attributeMetadataCollection;
     }
 
-    public async GetExpandedAuditRecords(
-        recordsToFetchAuditDataFor: DataverseEntityReference[]
-    ): Promise<AuditTableData> {
-        try {
-            const res: AuditRecordsResponse =
-                await this._service.fetchAuditData(recordsToFetchAuditDataFor);
-
-            const auditTableData = new AuditTableData(
-                res.entities,
-                recordsToFetchAuditDataFor,
-                this._attributeMetadataStore,
-                this._service.fetchEntityMetadata.bind(this._service)
-            );
-            await auditTableData.refreshMetadata.bind(auditTableData)();
-            return auditTableData;
-        } catch (error) {
-            console.error("Error retrieving entity relationships:", error);
-            throw error;
-        }
-    }
-
-    public async getRecordAndRelatedRecords(
+    /**
+     * Retrieves expanded audit records for the specified entities
+     * @param recordsToFetchAuditDataFor Array of entity references to retrieve
+     *  audit data for
+     * @returns Promise resolving to processed audit table data
+     */
+    public async getExpandedAuditRecords(
         entityLogicalName: string,
         entityId: string,
         relationshipNames: string,
         relatedEntityNames: string
-    ) {
-        const primaryEntityDefinition: DataversePrimaryEntityDefinition =
+    ): Promise<AuditTableData> {
+        const recordsToFetchAuditDataFor =
+            await this.getRecordsToIncludeAuditDataFor(
+                entityLogicalName,
+                entityId,
+                relationshipNames,
+                relatedEntityNames
+            );
+        const auditData: ServiceFetchAuditDataResponse =
+            await this.executeFetchAuditDataRequest(recordsToFetchAuditDataFor);
+
+        const auditTableData = new AuditTableData(
+            auditData.auditDetailItems,
+            this._attributeMetadataStore,
+            this._service.fetchEntityMetadata.bind(this._service)
+        );
+        await auditTableData.enrichRowData.bind(auditTableData)();
+        return auditTableData;
+    }
+
+    // Retrieves a primary entity and all entities associated with it through
+    // one of the associated relationship names
+    private async getRecordsToIncludeAuditDataFor(
+        entityLogicalName: string,
+        entityId: string,
+        relationshipNames: string,
+        relatedEntityNames: string
+    ): Promise<ControlEntityReference[]> {
+        const primaryEntityDefinition: ControlPrimaryEntityDefinition =
             PrimaryEntityDefinitionBuilder.getPrimaryEntityDefinition(
                 entityLogicalName,
                 relationshipNames,
                 relatedEntityNames
             );
 
-        const entityResponse =
-            await this.executeGetRecordAndRelatedRecordsRequest(
+        const entityResponse: ServiceFetchRecordAndRelatedRecordsResponse =
+            await this.executeFetchRecordAndRelatedRecordsRequest(
                 primaryEntityDefinition,
                 entityId
             );
 
-        return this.parseEntitiesFromWebApiEntityResponse(
+        return extractEntityAndRelatedEntitiesFromEntityResponse(
             primaryEntityDefinition,
-            entityResponse
+            entityResponse.entity
         );
     }
 
-    private async executeGetRecordAndRelatedRecordsRequest(
-        primaryEntityDefinition: DataversePrimaryEntityDefinition,
+    // Helper method wrapping the execution of a fetchRecordAndRelatedRecords
+    // service request with error handling
+    private async executeFetchRecordAndRelatedRecordsRequest(
+        primaryEntityDefinition: ControlPrimaryEntityDefinition,
         primaryEntityId: string
-    ): Promise<ComponentFramework.WebApi.Entity> {
-        const req: GetRecordAndRelatedRecordsQuery = {
-            primaryEntity: {
-                logicalName: primaryEntityDefinition.logicalName,
-                id: primaryEntityId,
-                select: [primaryEntityDefinition.idField],
-            },
-            relationships: this.buildRelationshipQuery(
-                primaryEntityDefinition.relationshipDefinitions
-            ),
-        };
-        return await this._service.getRecordAndRelatedRecords(req);
-    }
-
-    private buildRelationshipQuery(
-        relationshipsMetadata: DataverseRelationshipDefinition[]
-    ): RelationshipQuery[] {
-        const relationshipQueries: RelationshipQuery[] = [];
-        for (const relationship of relationshipsMetadata) {
-            relationshipQueries.push({
-                relationshipName: relationship.schemaName,
-                select: [relationship.entityDefinition.idField],
-            });
-        }
-        return relationshipQueries;
-    }
-
-    private parseEntitiesFromWebApiEntityResponse(
-        primaryEntityDefinition: DataversePrimaryEntityDefinition,
-        entityResponse: ComponentFramework.WebApi.Entity
-    ): DataverseEntityReference[] {
-        const PrimaryEntity: DataverseEntityReference = {
-            id: this.tryGetEntityAttribute<string>(
-                entityResponse,
-                primaryEntityDefinition.idField
-            ),
-            logicalName: primaryEntityDefinition.logicalName,
-        };
-        const entities = [PrimaryEntity];
-
-        for (const relationshipDefinition of primaryEntityDefinition.relationshipDefinitions) {
-            const relatedEntities = this.tryGetEntityAttribute<
-                Record<string, string>[]
-            >(entityResponse, relationshipDefinition.schemaName);
-
-            for (const relatedEntity of relatedEntities) {
-                const relatedEntityDefinition =
-                    relationshipDefinition.entityDefinition;
-
-                entities.push({
-                    id: this.tryGetEntityAttribute<string>(
-                        relatedEntity,
-                        relatedEntityDefinition.idField
-                    ),
-                    logicalName: relatedEntityDefinition.logicalName,
-                });
-            }
-        }
-        return entities;
-    }
-
-    private tryGetEntityAttribute<T>(
-        entity: Record<string, string>,
-        attributeLogicalName: string
-    ): T {
-        const attributeValue = entity[attributeLogicalName] as unknown;
-
-        if (attributeValue === undefined || attributeValue === null) {
-            throw new Error(
-                `Attribute '${attributeLogicalName}' is null or undefined`
-            );
-        }
+    ): Promise<ServiceFetchRecordAndRelatedRecordsResponse> {
         try {
-            return attributeValue as T;
-        } catch (e) {
-            throw new Error(
-                `Failed to convert attribute '${attributeLogicalName}' to requested type: ${
-                    e instanceof Error ? e.message : String(e)
-                }`
+            const req =
+                ServiceRequestBuilder.buildServiceFetchRecordAndRelatedRecordsRequest(
+                    primaryEntityDefinition,
+                    primaryEntityId
+                );
+            return await this._service.fetchRecordAndRelatedRecords(req);
+        } catch (error: unknown) {
+            const controlError = new ControlOperationalError(
+                "Error retrieving the record and associated records",
+                error
             );
+            throw controlError;
+        }
+    }
+
+    // Helper method wrapping the execution of a fetchAuditData service request
+    // with error handling
+    private async executeFetchAuditDataRequest(
+        recordsToFetchAuditDataFor: ControlEntityReference[]
+    ): Promise<ServiceFetchAuditDataResponse> {
+        try {
+            const serviceRequest: ServiceFetchAuditDataRequest = {
+                targetEntities: recordsToFetchAuditDataFor,
+            };
+            return await this._service.fetchAuditData(serviceRequest);
+        } catch (error: unknown) {
+            const controlError = new ControlOperationalError(
+                "Error retrieving audit data",
+                error
+            );
+            throw controlError;
         }
     }
 }

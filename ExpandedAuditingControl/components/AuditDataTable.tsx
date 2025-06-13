@@ -1,35 +1,57 @@
 import * as React from "react";
 import {
-    Link,
     Table,
     TableBody,
-    TableCell,
     TableHeader,
     TableHeaderCell,
     TableRow,
 } from "@fluentui/react-components";
 import { AuditTableData } from "../model/auditTableData";
-import {
-    ChangeDataItem,
-    ChangeDataItemValue,
-} from "../model/changeDataBuilder";
-import { DataverseEntityReference } from "../model/dataverseEntityTypes";
+import { ControlEntityReference, TableFilters } from "../model/controlTypes";
+import { IEnrichedAuditTableRowData } from "../model/auditTableTypes";
+import { LoadingSpinner } from "./LoadingSpinner";
+import { AuditDataTableRow } from "./AuditDataTableRow";
 
+/**
+ * Props for the AuditDataTable component
+ *
+ * @interface AuditDataTableProps
+ * @property {string} primaryEntityId - ID of the primary entity whose audit
+ *  history is being displayed
+ * @property {TableFilters | undefined} tableFilters - Filters to control which
+ *  entity types are displayed
+ * @property {AuditTableData | undefined} auditTableData - The audit data to be
+ *  displayed in the table
+ * @property {boolean} isLoading - Indicates whether data is currently being
+ *  fetched
+ * @property {function} onClickEntityReference - Callback function triggered
+ *  when an entity reference is clicked
+ */
 export interface AuditDataTableProps {
     primaryEntityId: string;
-    auditTableData: AuditTableData;
+    tableFilters: TableFilters | undefined;
+    auditTableData: AuditTableData | undefined;
+    isLoading: boolean;
     onClickEntityReference: (
-        entityReference: DataverseEntityReference | null
+        entityReference: ControlEntityReference | null
     ) => Promise<void>;
 }
 
+/**
+ * Component for rendering a table of audit history data.
+ *
+ * @param {AuditDataTableProps} props - Component props
+ * @returns {JSX.Element} Rendered table component with audit data
+ */
 export const AuditDataTable: React.FC<AuditDataTableProps> = ({
     auditTableData,
+    tableFilters,
     onClickEntityReference,
     primaryEntityId,
+    isLoading,
 }) => {
     const columns = [
-        "Date",
+        "Changed Date",
         "Changed By",
         "Record",
         "Event",
@@ -38,142 +60,43 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
         "New Value",
     ];
 
-    const cellStyle = {
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        width: "fit-content",
-        padding: "2px 4px",
-        textAlign: "left" as const,
-    };
-
-    return (
-        <Table
-            aria-label="Expanded Audit Table"
-            style={{ minWidth: "769px", width: "100%" }}
-        >
-            <TableHeader>
-                <TableRow>
-                    {columns.map((col) => (
-                        <TableHeaderCell key={col} style={cellStyle}>
-                            {col}
-                        </TableHeaderCell>
-                    ))}
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {auditTableData.rowData.map((row) => {
-                    const isPrimaryEntity =
-                        row.entityReference.id == primaryEntityId;
-
-                    return (
-                        <TableRow key={row.id}>
-                            <TableCell style={cellStyle}>
-                                {row.formattedDate}
-                            </TableCell>
-                            <TableCell style={cellStyle}>
-                                {row.changedBy}
-                            </TableCell>
-                            {isPrimaryEntity && (
-                                <TableCell style={cellStyle}>
-                                    {row.entityDisplayName}
-                                </TableCell>
-                            )}
-                            {!isPrimaryEntity && (
-                                <TableCell
-                                    style={cellStyle}
-                                    onClick={() =>
-                                        void onClickEntityReference(
-                                            row.entityReference
-                                        )
-                                    }
-                                >
-                                    <Link>{row.entityDisplayName}</Link>
-                                </TableCell>
-                            )}
-                            <TableCell style={cellStyle}>{row.event}</TableCell>
-                            <ChangeDataDisplayNameCell
-                                cellStyle={cellStyle}
-                                changeData={row.changeData}
-                            />
-                            <ChangeDataValueCell
-                                cellStyle={cellStyle}
-                                changeData={row.changeData}
-                                onClickEntityReference={onClickEntityReference}
-                                valueSelector={(c) => c.oldValue}
-                            />
-                            <ChangeDataValueCell
-                                cellStyle={cellStyle}
-                                changeData={row.changeData}
-                                onClickEntityReference={onClickEntityReference}
-                                valueSelector={(c) => c.newValue}
-                            />
-                        </TableRow>
-                    );
-                })}
-            </TableBody>
-        </Table>
-    );
-};
-
-const ChangeDataDisplayNameCell: React.FC<{
-    changeData: ChangeDataItem[] | null | undefined;
-    cellStyle: Record<string, string>;
-}> = ({ changeData, cellStyle }) => {
-    if (!changeData?.length) {
-        return <TableCell style={cellStyle}>{""}</TableCell>;
+    let rowData: IEnrichedAuditTableRowData[] = [];
+    if (auditTableData?.rowData) {
+        rowData = auditTableData.rowData;
     }
 
     return (
-        <TableCell style={cellStyle}>
-            {changeData.map((c, i, a) => {
-                return (
-                    <React.Fragment key={i}>
-                        {c.changedFieldDisplayName}
-                        {i < a.length - 1 && <br />}
-                    </React.Fragment>
-                );
-            })}
-        </TableCell>
-    );
-};
-
-const ChangeDataValueCell: React.FC<{
-    changeData: ChangeDataItem[] | null | undefined;
-    cellStyle: Record<string, string>;
-    onClickEntityReference: (
-        entityReference: DataverseEntityReference | null
-    ) => Promise<void>;
-    valueSelector: (changeDataItem: ChangeDataItem) => ChangeDataItemValue;
-}> = ({ changeData, cellStyle, onClickEntityReference, valueSelector }) => {
-    if (!changeData?.length) {
-        return <TableCell style={cellStyle}>{""}</TableCell>;
-    }
-
-    return (
-        <TableCell style={cellStyle}>
-            {changeData.map((c, i, a) => {
-                const value = valueSelector(c);
-                if (!value.lookup) {
-                    return (
-                        <React.Fragment key={i}>
-                            {value.raw}
-                            {i < a.length - 1 && <br />}
-                        </React.Fragment>
-                    );
-                }
-                return (
-                    <React.Fragment key={i}>
-                        <Link
-                            onClick={() =>
-                                void onClickEntityReference(value.lookup)
-                            }
-                        >
-                            {c.changedFieldDisplayName}
-                        </Link>
-                    </React.Fragment>
-                );
-            })}
-        </TableCell>
+        <div className="voa_audit_table_wrapper">
+            {isLoading && <LoadingSpinner />}
+            <Table className="voa_audit_table">
+                <TableHeader>
+                    <TableRow>
+                        {columns.map((col) => (
+                            <TableHeaderCell
+                                key={col}
+                                className="voa_audit_table_header_cell"
+                            >
+                                {col}
+                            </TableHeaderCell>
+                        ))}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {rowData.map((row) => {
+                        if (!tableFilters?.[row.entityDisplayName]) {
+                            return;
+                        }
+                        return (
+                            <AuditDataTableRow
+                                key={row.id}
+                                primaryEntityId={primaryEntityId}
+                                row={row}
+                                onClickEntityReference={onClickEntityReference}
+                            />
+                        );
+                    })}
+                </TableBody>
+            </Table>
+        </div>
     );
 };

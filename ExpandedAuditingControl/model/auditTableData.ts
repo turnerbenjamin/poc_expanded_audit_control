@@ -1,75 +1,111 @@
-import { EntityAndAttributeMetadata } from "../service/dataverseService";
+import {
+    ServiceFetchEntityMetadataRequest,
+    ServiceFetchEntityMetadataResponse,
+} from "../service/serviceRequestAndResponseTypes";
 import { IAttributeMetadataCollection } from "./attributeMetadataCollection";
+import { AuditDetailItem } from "./auditDetailItem";
 import { AuditTableRowData } from "./auditTableRowData";
 import {
-    DataverseAttributeDefinition,
-    DataverseEntityReference,
-} from "./dataverseEntityTypes";
-import { DataverseAttributeMetadataRequest } from "./dataverseRequestAndResponseTypes";
-import { AuditRecord } from "./dataverseResponseTypes";
+    IEnrichedAuditTableRowData,
+    IRawAuditTableRowData,
+} from "./auditTableTypes";
+import { ControlOperationalError } from "./controlTypes";
 
+/**
+ * Function type for retrieving entity metadata from a service
+ * @param req The metadata request containing entity and attribute information
+ * @returns Promise resolving to entity metadata response
+ */
 type MetadataGetter = (
-    req: DataverseAttributeMetadataRequest
-) => Promise<EntityAndAttributeMetadata>;
+    req: ServiceFetchEntityMetadataRequest
+) => Promise<ServiceFetchEntityMetadataResponse>;
 
+/**
+ * Class that manages audit data, including parsing, enrichment with metadata,
+ * and transformation of raw audit data into display-ready enriched data
+ */
 export class AuditTableData {
-    public rowData: AuditTableRowData[];
-    private _attributeMetadataStore: IAttributeMetadataCollection;
-    private _fetchEntityMetadata: MetadataGetter;
+    // Row data enriched with entity metadata ready for display in the UI
+    public rowData: IEnrichedAuditTableRowData[];
 
+    // Collection of entity display names in the table. Used by UI for filtering
+    public entityDisplayNames: Set<string> = new Set<string>();
+
+    // Store persisting entity metadata to reduce WebApi calls
+    private attributeMetadataStore: IAttributeMetadataCollection;
+
+    // Function used to retrieve metadata for row data properties that need
+    // enriching
+    private fetchEntityMetadata: MetadataGetter;
+
+    // Audit data prior to enrichment. Used to process the entities and
+    // attributes for which entity metadata needs to be retrieved
+    private rawRowData: IRawAuditTableRowData[];
+
+    /**
+     * Creates a new instance of AuditTableData
+     * @param auditDetailItems Collection of audit items to process
+     * @param attributeMetadataCollection Collection for storing and retrieving
+     *  attribute metadata
+     * @param fetchEntityMetadata Function for retrieving entity metadata from
+     *  the service
+     */
     public constructor(
-        auditData: AuditRecord[],
-        trackedEntities: DataverseEntityReference[],
+        auditDetailItems: AuditDetailItem[],
         attributeMetadataCollection: IAttributeMetadataCollection,
         fetchEntityMetadata: MetadataGetter
     ) {
-        this._attributeMetadataStore = attributeMetadataCollection;
-        this._fetchEntityMetadata = fetchEntityMetadata;
+        this.attributeMetadataStore = attributeMetadataCollection;
+        this.fetchEntityMetadata = fetchEntityMetadata;
 
-        const entityIdToEntityMap =
-            this.buildEntityIdToEntityMap(trackedEntities);
-
-        this.rowData = this.buildRowData.bind(this)(
-            auditData,
-            entityIdToEntityMap
-        );
+        this.rawRowData = this.buildRawRowData.bind(this)(auditDetailItems);
     }
 
-    public async refreshMetadata() {
-        const requests = this.buildMetadataRequests(this.rowData);
-        await this.updateAttributeMetadata(requests);
+    /**
+     * Enriches raw row data with metadata and constructs the enriched row data
+     * This process includes fetching missing metadata, updating the metadata
+     * store, and transforming raw data into enriched format
+     * @returns Promise that resolves when enrichment is complete
+     */
+    public async enrichRowData(): Promise<void> {
+        const requests = this.buildMetadataRequests(this.rawRowData);
+        const responses = await this.executeFetchMetadataRequests(requests);
+        this.updateMetadataStore(responses);
+        this.buildEnrichedRowData();
     }
 
-    private buildEntityIdToEntityMap(
-        entities: DataverseEntityReference[]
-    ): Record<string, DataverseEntityReference> {
-        const entityIdToEntityMap: Record<string, DataverseEntityReference> =
-            {};
-        for (const entity of entities) {
-            entityIdToEntityMap[entity.id] = entity;
-        }
-        return entityIdToEntityMap;
-    }
-
-    private buildRowData(
-        auditRecords: AuditRecord[],
-        entityIdToEntityMap: Record<string, DataverseEntityReference>
+    /**
+     * Builds raw audit table row data from audit detail items
+     * @param auditDetailItems Collection of audit items to process
+     * @returns Array of raw audit table row data
+     * @private
+     */
+    private buildRawRowData(
+        auditDetailItems: AuditDetailItem[]
     ): AuditTableRowData[] {
         const rowData = [];
-        for (const auditRecord of auditRecords) {
-            const entityId = auditRecord._objectid_value;
-            const entity = entityIdToEntityMap[entityId];
+        for (const auditDetailItem of auditDetailItems) {
+            const entityId = auditDetailItem.auditRecord.recordId;
 
-            rowData.push(new AuditTableRowData(auditRecord, entity));
+            rowData.push(new AuditTableRowData(auditDetailItem));
+
+            const entityDisplayName =
+                auditDetailItem.auditRecord.recordTypeDisplayName;
+            this.entityDisplayNames.add(entityDisplayName);
         }
         return rowData;
     }
 
-    private buildMetadataRequests(rowData: AuditTableRowData[]) {
+    // Iterates through the row data to identify attributes for which there is
+    // no stored metadata. Builds service fetch metadata requests for each
+    // entity type with attributes to fetch
+    private buildMetadataRequests(
+        rowData: IRawAuditTableRowData[]
+    ): ServiceFetchEntityMetadataRequest[] {
         const entityToChangedAttributesMap: Record<string, Set<string>> = {};
 
         for (const row of rowData) {
-            if (!row.changeData?.length) {
+            if (!row.rawChangeData?.length) {
                 continue;
             }
 
@@ -80,15 +116,13 @@ export class AuditTableData {
                     new Set<string>();
             }
 
-            for (const change of row.changeData) {
-                const storedValue = this._attributeMetadataStore.GetAttribute(
+            for (const change of row.rawChangeData) {
+                const storedValue = this.attributeMetadataStore.getAttribute(
                     row.entityReference.logicalName,
                     change.changedFieldLogicalName
                 );
 
-                if (storedValue != undefined) {
-                    continue;
-                }
+                if (storedValue != undefined) continue;
 
                 entityToChangedAttributesMap[
                     row.entityReference.logicalName
@@ -96,7 +130,7 @@ export class AuditTableData {
             }
         }
 
-        const requests: DataverseAttributeMetadataRequest[] = [];
+        const requests: ServiceFetchEntityMetadataRequest[] = [];
 
         for (const entityName in entityToChangedAttributesMap) {
             const changedAttributes = entityToChangedAttributesMap[entityName];
@@ -112,51 +146,49 @@ export class AuditTableData {
         return requests;
     }
 
-    private async updateAttributeMetadata(
-        requests: DataverseAttributeMetadataRequest[]
-    ): Promise<void> {
-        const promises: Promise<EntityAndAttributeMetadata>[] = [];
-        for (const request of requests) {
-            promises.push(this._fetchEntityMetadata(request));
+    // Execute requests to fetch entity metadata in parallel with error handling
+    private async executeFetchMetadataRequests(
+        requests: ServiceFetchEntityMetadataRequest[]
+    ): Promise<ServiceFetchEntityMetadataResponse[]> {
+        try {
+            const promises = requests.map((request) =>
+                this.fetchEntityMetadata(request)
+            );
+            return await Promise.all(promises);
+        } catch (error: unknown) {
+            const controlError = new ControlOperationalError(
+                "Failed to fetch entity metadata",
+                error
+            );
+            throw controlError;
         }
+    }
 
-        const responses = await Promise.all(promises);
-
-        for (const entityAndAttributeMetadata of responses) {
-            for (const attribute of entityAndAttributeMetadata.attributes) {
-                this._attributeMetadataStore.SetAttribute(
-                    entityAndAttributeMetadata.entityName,
+    // Update the metadata store with data received from a
+    // ServiceFetchEntityMetadataResponse
+    private updateMetadataStore(
+        entityMetadataResponses: ServiceFetchEntityMetadataResponse[]
+    ): void {
+        for (const entityMetadataResponse of entityMetadataResponses) {
+            const entityLogicalName = entityMetadataResponse.entityLogicalName;
+            for (const attribute of entityMetadataResponse.attributes) {
+                this.attributeMetadataStore.setAttribute(
+                    entityLogicalName,
                     attribute
                 );
             }
         }
-
-        for (const row of this.rowData) {
-            if (!row.changeData?.length) {
-                continue;
-            }
-
-            for (const change of row.changeData) {
-                change.changedFieldDisplayName = this.getDisplayName(
-                    row.entityReference.logicalName,
-                    change.changedFieldLogicalName
-                );
-            }
-        }
-        this._attributeMetadataStore.SaveData();
+        this.attributeMetadataStore.saveData();
     }
 
-    public getDisplayName(
-        entityLogicalName: string,
-        attributeName: string
-    ): string {
-        const storeValue = this._attributeMetadataStore.GetAttribute(
-            entityLogicalName,
-            attributeName
-        );
-        if (!storeValue?.displayName) {
-            return attributeName;
+    // Build enriched row data by appling metadata to the raw row data.
+    private buildEnrichedRowData(): void {
+        this.rowData = [];
+        for (const rawRow of this.rawRowData) {
+            const enrichedRow = rawRow.enrichWithMetadata.bind(rawRow)(
+                this.attributeMetadataStore
+            );
+            this.rowData.push(enrichedRow);
         }
-        return storeValue.displayName;
     }
 }
