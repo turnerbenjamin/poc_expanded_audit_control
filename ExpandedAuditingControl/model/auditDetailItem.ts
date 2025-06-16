@@ -5,11 +5,12 @@ import {
     WebApiRecordChangeHistoryChangeValues,
 } from "../service/webApiRequestAndResponseTypes";
 import { ChangeDataItemValue, IRawChangeDataItem } from "./auditTableTypes";
+import { ControlEntityReference } from "./controlTypes";
 
 /**
  * Enumeration of OData annotation keys used for data processing
  */
-enum ODataAnnotations {
+enum PropertyAnnotations {
     FormattedValue = "@OData.Community.Display.V1.FormattedValue",
     LookupLogicalName = "@Microsoft.Dynamics.CRM.lookuplogicalname",
     AssociatedNavigationValue = "@Microsoft.Dynamics.CRM.associatednavigationproperty",
@@ -28,10 +29,10 @@ type ServiceChangeData = IRawChangeDataItem[];
  */
 export class AuditDetailItem {
     // The parsed audit record
-    public auditRecord: ServiceAuditRecord;
+    public readonly auditRecord: ServiceAuditRecord;
 
     // Collection of changes made in the audit record or undefined
-    public changeData: ServiceChangeData | undefined;
+    public readonly changeData: ServiceChangeData | undefined;
 
     /**
      * Creates a new audit detail item from a WebApi audit detail
@@ -56,30 +57,38 @@ export class AuditDetailItem {
         return {
             id: auditRecord.auditid,
             userFullname:
-                auditRecord[`_userid_value${ODataAnnotations.FormattedValue}`],
+                auditRecord[
+                    `_userid_value${PropertyAnnotations.FormattedValue}`
+                ],
             userId: auditRecord._userid_value,
             actionValue: auditRecord.action,
-            actionText: auditRecord[`action${ODataAnnotations.FormattedValue}`],
+            actionText:
+                auditRecord[`action${PropertyAnnotations.FormattedValue}`],
             recordId: auditRecord._objectid_value,
             recordLogicalName: auditRecord.objecttypecode,
             recordTypeDisplayName:
-                auditRecord[`objecttypecode${ODataAnnotations.FormattedValue}`],
+                auditRecord[
+                    `objecttypecode${PropertyAnnotations.FormattedValue}`
+                ],
             recordPrimaryName:
                 auditRecord[
-                    `_objectid_value${ODataAnnotations.FormattedValue}`
+                    `_objectid_value${PropertyAnnotations.FormattedValue}`
                 ],
             createdOn: new Date(auditRecord.createdon),
             createdOnLocalisedString:
-                auditRecord[`createdon${ODataAnnotations.FormattedValue}`],
+                auditRecord[`createdon${PropertyAnnotations.FormattedValue}`],
         };
     }
 
     /**
-     * Parses distinct attributes in old and new values to create a change item
-     * record for each attribute changed formatted for presentation to users.
-     * @param oldValues - The values before the change, may be undefined
-     * @param newValues - The values after the change, may be undefined
-     * @returns An array of change items or undefined if no changes detected
+     * Parses the old and new values from an audit record to create change data
+     * items
+     * @param {WebApiRecordChangeHistoryChangeValues | undefined} oldValues
+     *  Values before the change
+     * @param {WebApiRecordChangeHistoryChangeValues | undefined} newValues
+     *  Values after the change
+     * @returns {ServiceChangeData | undefined} Array of parsed change items or
+     *  undefined if no values
      */
     private parseChangeData(
         oldValues: WebApiRecordChangeHistoryChangeValues | undefined,
@@ -96,143 +105,144 @@ export class AuditDetailItem {
 
         const parsedChangeItems: IRawChangeDataItem[] = [];
         for (const attributeKey of changedAttributes) {
-            if (attributeKey.startsWith(ODataAnnotations.Type)) {
+            if (this.isPropertyAnnotation(attributeKey)) {
                 continue;
             }
-
-            let changeItem: IRawChangeDataItem | undefined = undefined;
-
-            const logicalNameValuePrefix = "_";
-            if (attributeKey.startsWith(logicalNameValuePrefix)) {
-                changeItem = this.parseLookupChangeItem(
-                    attributeKey,
-                    oldValues,
-                    newValues
-                );
-            } else {
-                changeItem = this.parseTextChangeItem(
-                    attributeKey,
-                    oldValues,
-                    newValues
-                );
-            }
-
-            if (!changeItem) {
-                continue;
-            }
-            parsedChangeItems.push(changeItem);
+            parsedChangeItems.push(
+                this.parseChangeItem(attributeKey, oldValues, newValues)
+            );
         }
         return parsedChangeItems;
     }
 
     /**
-     * Parses a standard (non-lookup) field change
-     * @param attributeKey - The logical name of the attribute
-     * @param oldValues - The values before the change
-     * @param newValues - The values after the change
-     * @returns A change data item or undefined if this is not a valid
-     *  change item
+     * Parses a single attribute change to create a change data item
+     * @param {string} attributeKey - The attribute key that changed
+     * @param {WebApiRecordChangeHistoryChangeValues} oldValues
+     *  Values before the change
+     * @param {WebApiRecordChangeHistoryChangeValues} newValues
+     *  Values after the change
+     * @returns {IRawChangeDataItem} A structured representation of the changed
+     *  attribute
      */
-    private parseTextChangeItem(
+    private parseChangeItem(
         attributeKey: string,
         oldValues: WebApiRecordChangeHistoryChangeValues,
         newValues: WebApiRecordChangeHistoryChangeValues
-    ): IRawChangeDataItem | undefined {
-        const odataAnnotationPrefix = "@";
-        if (attributeKey.includes(odataAnnotationPrefix)) {
-            return;
-        }
-        return {
-            changedFieldLogicalName: attributeKey,
-            oldValueRaw: this.parseTextChangeValue(attributeKey, oldValues),
-            newValueRaw: this.parseTextChangeValue(attributeKey, newValues),
-        };
-    }
-
-    /**
-     * Extracts and formats a text value from change data
-     * @param attributeKey - The logical name of the attribute
-     * @param values - The value collection containing the attribute
-     * @returns A formatted change data value
-     */
-    private parseTextChangeValue(
-        attributeKey: string,
-        values: WebApiRecordChangeHistoryChangeValues
-    ): ChangeDataItemValue {
-        const changeValue: ChangeDataItemValue = {
-            text: "-",
-            lookup: null,
-        };
-
-        if (values[attributeKey]) {
-            changeValue.text = values[attributeKey];
-        }
-
-        const formattedValue =
-            values[`${attributeKey}${ODataAnnotations.FormattedValue}`];
-        if (formattedValue) {
-            changeValue.text = formattedValue;
-        }
-
-        return changeValue;
-    }
-
-    /**
-     * Parses a lookup field change
-     * @param attributeKey - The logical name of the lookup attribute
-     * @param oldValues - The values before the change
-     * @param newValues - The values after the change
-     * @returns A change data item or undefined if this is not a valid change
-     *  item
-     */
-    private parseLookupChangeItem(
-        attributeKey: string,
-        oldValues: WebApiRecordChangeHistoryChangeValues,
-        newValues: WebApiRecordChangeHistoryChangeValues
-    ): IRawChangeDataItem | undefined {
-        const odataAnnotationPrefix = "@";
-        if (attributeKey.includes(odataAnnotationPrefix)) {
-            return;
-        }
-
-        const logicalName = this.parseLogicalNameForLookupField(
+    ): IRawChangeDataItem {
+        const changedFieldLookupName = this.parseChangedFieldLookupName(
             attributeKey,
             oldValues,
             newValues
         );
-
         return {
-            changedFieldLogicalName: logicalName,
-            oldValueRaw: this.parseLookupChangeValue(attributeKey, oldValues),
-            newValueRaw: this.parseLookupChangeValue(attributeKey, newValues),
+            changedFieldLogicalName: changedFieldLookupName,
+            oldValueRaw: this.parseChangeItemValue(attributeKey, oldValues),
+            newValueRaw: this.parseChangeItemValue(attributeKey, newValues),
         };
     }
 
     /**
-     * Determines the logical name for a lookup field from OData annotations.
-     *
-     * For some attributes, e.g. systemuser, the attribute is not on the entity
-     * itself and the associated navigation property points to the relevant
-     * column on the entity. This function assumes that where this property
-     * exists and the value of the property is lowercase (logical name rather
-     * than relationship name) it should be used.
-     *
-     * @param attributeKey - The attribute key for the lookup field
-     * @param oldValues - The values before the change
-     * @param newValues - The values after the change
-     * @returns The logical name of the lookup entity
+     * Creates a structured value representation for a change item
+     * @param {string} attributeKey - The attribute key
+     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
+     *  collection
+     * @returns {ChangeDataItemValue} Structured representation with text and
+     *  lookup values
      */
-    private parseLogicalNameForLookupField(
+    private parseChangeItemValue(
+        attributeKey: string,
+        values: WebApiRecordChangeHistoryChangeValues
+    ): ChangeDataItemValue {
+        return {
+            text: this.parseChangeItemTextValue(attributeKey, values),
+            lookup: this.parseChangeItemLookupValue(attributeKey, values),
+        };
+    }
+
+    /**
+     * Extracts the text representation of a change value or "-" if no value
+     * exists. Uses the value in the formatted value annotation if present, this
+     * provides, text values for option field changes and the primary text value
+     * for lookup field changes.
+     *
+     * @param {string} attributeKey - The attribute key
+     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
+     *  collection
+     * @returns {string} The formatted text value or "-" if not available
+     */
+    private parseChangeItemTextValue(
+        attributeKey: string,
+        values: WebApiRecordChangeHistoryChangeValues
+    ) {
+        if (!values[attributeKey]) {
+            return "-";
+        }
+        const formattedValueKey = `${attributeKey}${PropertyAnnotations.FormattedValue}`;
+        if (!values[formattedValueKey]) {
+            return values[attributeKey];
+        }
+        return values[formattedValueKey];
+    }
+
+    /**
+     * Extracts the lookup entity reference from a change value if applicable
+     * @param {string} attributeKey - The attribute key
+     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
+     *  collection
+     * @returns {ControlEntityReference | null} Entity reference or null if not
+     *  a lookup
+     */
+    private parseChangeItemLookupValue(
+        attributeKey: string,
+        values: WebApiRecordChangeHistoryChangeValues
+    ): ControlEntityReference | null {
+        const logicalName: string | undefined =
+            values[`${attributeKey}${PropertyAnnotations.LookupLogicalName}`];
+        if (!logicalName || !/^_.*_value$/.test(attributeKey)) {
+            return null;
+        }
+        const id = values[attributeKey];
+        return {
+            logicalName,
+            id,
+        };
+    }
+
+    /**
+     * Selects the appropriate changed field logical name based on the presence
+     * and value of annotations.
+     *
+     * @remarks
+     * If there is a associated navigation property annotation and the value is
+     * a property logical name (lowercase) then this is used. Fields like
+     * systemuser are not on the entity itself so the field cannot be enriched
+     * with entity metadata. The associated navigation property will point to
+     * the relevant entity property in this instance. In other instances it will
+     * point to a relationship name which is why it is only used where the value
+     * is lowercase.
+     *
+     * Other fields, e.g. lookup fields will have a logical name attribute. The
+     * attribute key here will be in the format _{logical_name}_value so we need
+     * to use the value from the logical name attribute
+     *
+     * Finally, if neither of these rules apply the attribute key is used, for
+     * simple fields like singleline text the attribute key will represent the
+     * logical name of the appropriate field on the entity
+     *
+     * @param {string} attributeKey - The attribute key
+     * @param {WebApiRecordChangeHistoryChangeValues} oldValues - Values before
+     *  the change
+     * @param {WebApiRecordChangeHistoryChangeValues} newValues - Values after
+     *  the change
+     * @returns {string} The logical name of the changed field
+     */
+    private parseChangedFieldLookupName(
         attributeKey: string,
         oldValues: WebApiRecordChangeHistoryChangeValues,
         newValues: WebApiRecordChangeHistoryChangeValues
     ): string {
-        const logicalNameKey = `${attributeKey}${ODataAnnotations.LookupLogicalName}`;
-        const associatedNavigationKey = `${attributeKey}${ODataAnnotations.AssociatedNavigationValue}`;
-
-        let logicalNameValue =
-            oldValues[logicalNameKey] || newValues[logicalNameKey];
-
+        const associatedNavigationKey = `${attributeKey}${PropertyAnnotations.AssociatedNavigationValue}`;
         const associatedNavigationValue: string | undefined =
             oldValues[associatedNavigationKey] ||
             newValues[associatedNavigationKey];
@@ -242,42 +252,21 @@ export class AuditDetailItem {
             associatedNavigationValue ===
                 associatedNavigationValue.toLowerCase()
         ) {
-            logicalNameValue = associatedNavigationValue;
+            return associatedNavigationValue;
         }
-        return logicalNameValue;
+
+        const logicalNameKey = `${attributeKey}${PropertyAnnotations.LookupLogicalName}`;
+        const logicalNameValue =
+            oldValues[logicalNameKey] || newValues[logicalNameKey];
+
+        return logicalNameValue ?? attributeKey;
     }
 
-    /**
-     * Extracts and formats a lookup value from change data
-     * @param attributeKey - The attribute key for the lookup field
-     * @param displayLogicalName - The logical name of the lookup entity
-     * @param values - The value collection containing the lookup
-     * @returns A formatted lookup value with id and display text
-     */
-    private parseLookupChangeValue(
-        attributeKey: string,
-        values: WebApiRecordChangeHistoryChangeValues
-    ): ChangeDataItemValue {
-        const displayNameValue =
-            values[`${attributeKey}${ODataAnnotations.FormattedValue}`] || "-";
-        const idValue = values[attributeKey];
-        const logicalName =
-            values[`${attributeKey}${ODataAnnotations.LookupLogicalName}`];
-
-        if (!displayNameValue || !idValue) {
-            return {
-                text: displayNameValue,
-                lookup: null,
-            };
-        }
-
-        return {
-            text: displayNameValue,
-            lookup: {
-                logicalName: logicalName,
-                id: idValue,
-            },
-        };
+    // Simple helper to check if property is an annotation. Used to make the
+    // logic above more declarative.
+    private isPropertyAnnotation(property: string) {
+        const propertyAnnotationPrefix = "@";
+        return property.includes(propertyAnnotationPrefix);
     }
 
     /**
