@@ -11,19 +11,18 @@ import { LoadingSpinner } from "./components/LoadingSpinner";
  * Props for the ExpandedAuditView component
  *
  * @interface ExpandedAuditViewProps
- * @property {IDataverseController} dataverseController - Controller for interacting with Dataverse APIs
- * @property {string} primaryEntityLogicalName - Logical name of the primary entity
- * @property {string} primaryEntityId - Unique identifier of the primary entity record
- * @property {string} relationshipNames - Comma-separated list of relationship names
- * @property {string} relatedEntityNames - Comma-separated list of related entity logical names
- * @property {function} onClickEntityReference - Callback function triggered when an entity reference is clicked
+ * @property {IDataverseController} dataverseController - Controller for
+ * interacting with Dataverse APIs
+ * @property {string} primaryEntityId - Unique identifier of the primary entity
+ * record
+ * @property {string} controlConfig - JSON configuration for the control
+ * @property {function} onClickEntityReference - Callback function triggered
+ * when an entity reference is clicked
  */
 export interface ExpandedAuditViewProps {
     dataverseController: IDataverseController;
-    primaryEntityLogicalName: string;
     primaryEntityId: string;
-    relationshipNames: string;
-    relatedEntityNames: string;
+    controlConfig: string;
     onClickEntityReference: (
         entityReference: ControlEntityReference | null
     ) => Promise<void>;
@@ -41,10 +40,8 @@ export interface ExpandedAuditViewProps {
  */
 export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = ({
     dataverseController,
-    primaryEntityLogicalName,
     primaryEntityId,
-    relationshipNames,
-    relatedEntityNames,
+    controlConfig,
     onClickEntityReference,
 }) => {
     const {
@@ -54,13 +51,7 @@ export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = ({
         recordFilters,
         fetchAuditRecords,
         handleToggleRecordFilter,
-    } = useAuditRecords(
-        dataverseController,
-        primaryEntityLogicalName,
-        primaryEntityId,
-        relationshipNames,
-        relatedEntityNames
-    );
+    } = useAuditRecords(dataverseController, primaryEntityId, controlConfig);
 
     // Handler for the refresh button. Invokes fetch audit records
     const handleRefresh = React.useCallback(() => {
@@ -78,7 +69,7 @@ export const ExpandedAuditView: React.FC<ExpandedAuditViewProps> = ({
     if (error) {
         return (
             <div id="voa_expanded_audit_control" className={classname}>
-                <p className="error">{error.messageForUsers}</p>
+                <p className="voa_error_message">{error.messageForUsers}</p>
             </div>
         );
     }

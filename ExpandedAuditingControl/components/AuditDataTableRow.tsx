@@ -43,12 +43,14 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
     return (
         <TableRow key={row.id} className={rowClassnames}>
             {/* CHANGED DATE */}
-            <TableCell className={cellClassnames}>
+            <TableCell className={cellClassnames} title={row.formattedDate}>
                 {row.formattedDate}
             </TableCell>
 
             {/* CHANGED BY */}
-            <TableCell className={cellClassnames}>{row.changedBy}</TableCell>
+            <TableCell className={cellClassnames} title={row.changedBy}>
+                {row.changedBy}
+            </TableCell>
 
             {/* RECORD */}
             <TableCell className={cellClassnames}>
@@ -61,10 +63,12 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* EVENT */}
-            <TableCell className={cellClassnames}>{row.event}</TableCell>
+            <TableCell className={cellClassnames} title={row.event}>
+                {row.event}
+            </TableCell>
 
             {/* CHANGED FIELD */}
-            <TableCell>
+            <TableCell className={cellClassnames}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}
@@ -74,7 +78,7 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* OLD VALUE */}
-            <TableCell>
+            <TableCell className={cellClassnames}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}
@@ -84,7 +88,7 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* NEW VALUE */}
-            <TableCell>
+            <TableCell className={cellClassnames}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}

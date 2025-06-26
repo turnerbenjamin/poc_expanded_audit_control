@@ -2,11 +2,11 @@
  * @remarks
  * Currently, the ComponentFramework.WebApi interface does not include the
  * execute or execute multiple methods. However, these methods do exist on the
- * WebApi instance passed to the PCF. These interfaces are used to give the PCF
- * access to these methods.
+ * WebApi instance passed to the PCF when executed in model-driven apps. These
+ * interfaces are used to give the PCF access to these methods.
  *
  * This control uses documented functionality only. This is the one exception,
- * as there is no alternative at this time for calling actions/functions.
+ * as there is no alternative, at this time, for calling actions/functions.
  */
 
 /**

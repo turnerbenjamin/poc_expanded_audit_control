@@ -43,11 +43,14 @@ export const LookupElement: React.FC<LookupElementProps> = ({
     const isPrimaryEntity = entityReference.id === primaryEntityId;
 
     if (isPrimaryEntity) {
-        return <p>{entityDisplayName}</p>;
+        return <p title={entityDisplayName}>{entityDisplayName}</p>;
     }
 
     return (
-        <p onClick={() => void onClickEntityReference(entityReference)}>
+        <p
+            onClick={() => void onClickEntityReference(entityReference)}
+            title={entityDisplayName}
+        >
             <Link>{entityDisplayName}</Link>
         </p>
     );

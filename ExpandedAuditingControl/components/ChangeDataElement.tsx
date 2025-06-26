@@ -60,11 +60,19 @@ export const ChangeDataElement: React.FC<ChangeDataElementProps> = ({
         const value = propertySelector(item);
 
         if (typeof value === "string") {
-            changeDataItemElements.push(<p key={i}>{value}</p>);
+            changeDataItemElements.push(
+                <p key={i} title={value}>
+                    {value}
+                </p>
+            );
             continue;
         }
         if (!value.lookup) {
-            changeDataItemElements.push(<p key={i}>{value.text}</p>);
+            changeDataItemElements.push(
+                <p key={i} title={value.text}>
+                    {value.text}
+                </p>
+            );
             continue;
         }
 

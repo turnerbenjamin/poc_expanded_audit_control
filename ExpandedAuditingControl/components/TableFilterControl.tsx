@@ -30,14 +30,17 @@ export interface TableFilterProps {
  * If no filters exist, the component renders nothing.
  *
  * @param {TableFilterProps} props - Component props
- * @returns {JSX.Element | null} A div containing filter tags or null if no filters exist
+ * @returns {JSX.Element} A div containing filter tags or an empty div
+ *  if no filters exist
  */
 export const TableFilterControl: React.FC<TableFilterProps> = ({
     tableFilters,
     onFilterClick,
 }) => {
+    const elementId = "voa_expanded_audit_control--filter-control";
+
     if (!tableFilters || !Object.keys(tableFilters).length) {
-        return null;
+        return <div id={elementId}></div>;
     }
 
     const filterTags: React.JSX.Element[] = [];
@@ -58,7 +61,5 @@ export const TableFilterControl: React.FC<TableFilterProps> = ({
         );
     }
 
-    return (
-        <div id="voa_expanded_audit_control--filter-control">{filterTags}</div>
-    );
+    return <div id={elementId}>{filterTags}</div>;
 };

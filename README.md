@@ -1,84 +1,95 @@
 # Expanded Audit Control
 
-![The control in a form](./screens/2_audit_table.png)
-
 ## Adding to a Form
 
-The control needs two fields:
+The control accepts three parameters:
 
-- Entity logical name
-- Entity id
+- Primary Entity Primary Key
+- Primary Entity ID
+- Control Config
 
-I could not find a way to pass these as bound parameters and controls would only
-appear as an option in model-driven forms where there is at least one bound
-parameter so the control also requests a primary name column:
+### Primary Entity Primary Key
 
-![Adding the control](./screens/1_adding_to_a_form.png)
+To be added to a model-driven app, a PCF requires a bound field. This is used
+to satisfy this requirement only. Select any field.
 
-## Approach
+### Primary Entity ID
 
-There were two main challenges:
+This cannot be added as a bound field, probably because it is readonly. When
+adding an input you can select to bind to a field, select the relevant field
+containing the primary record's ID
 
-- Efficiently mapping field logical names to display names
-- Passing relationships and related entities to the control
+### Control Config
 
-Both challenges were solved by writing a SchemaBuilder console program. This has
-been linked to an npm script:
+This is used to define the related entities to include in the control. The
+config should be a JSON object implementing the ServiceEntityQuery interface:
 
-```terminal
-npm run buildSchema
+```ts
+export interface ServiceExpandedItem {
+    propertyName: string;
+    relatedEntityLogicalName: EntityLogicalName;
+    oneOrMany: ServiceOneOrMany;
+    isManyToMany: boolean;
+    doInclude: boolean | undefined;
+    expand: ServiceExpandedItem[] | undefined;
+}
+
+export interface ServiceEntityQuery {
+    primaryEntityLogicalName: EntityLogicalName;
+    expand: ServiceExpandedItem[];
+}
 ```
 
-The program:
+You can include all relationship types in the top level expand, including N:N
+relationships. You can also include nested expands up to a depth of 4 for more
+complex relationships. However, a query will fail if it includes both N:N
+relationships and nested expands.
 
-- Gets all custom relationships defined for one or more entities
-- Creates a list of all entities in these relationships
-- Fetches metadata for this wider list of entities
-- Writes the results to a [typescript file](./ExpandedAuditingControl/model/cached_dataverse_metadata.ts)
+It is easiest to use an IDE to construct the JSON and paste it in. Structural
+errors are thrown early so should be shown when adding the control to the form.
 
-This simplifies the code quite a bit and the data can be fetched with just two
-calls. The first to get all related entities and the second to get audit data
-for this list of entities.
-
-Originally, I tried to pass a comma separated string of relationships, but this
-felt a little unsafe and there was no reliable way to parse the related entities
-from a relationship string.
-
-### A Better Approach
-
-The main problem with this approach is that the user needs to download all of
-this metadata. The file is relatively small and will be cached, however, it may
-be better to shift this logic to a custom web api:
-
-- Metadata for for relationships and entities can be cached server-side
-- Audit data rows can be returned preformatted to the client
-
-This approach would also simplify updating the cached metadata.
-
-## SchemaBuilder
-
-The schema builder requires a .env file in the SchemaBuilder directory:
-
-```env
-CLIENT_ID={APPLICATION ID}
-CLIENT_SECRET={APPLICATION SECRET}
-INSTANCE_URL=https://{{ORG}}.crm11.dynamics.com
+```json
+{
+    "primaryEntityLogicalName": "ardea_booking",
+    "expand": [
+        {
+            "propertyName": "ardea_seatingplans_Booking_ardea_booking",
+            "relatedEntityLogicalName": "ardea_seatingplans",
+            "oneOrMany": "many",
+            "isManyToMany": false
+        },
+        {
+            "propertyName": "ardea_Venue",
+            "relatedEntityLogicalName": "ardea_venue",
+            "oneOrMany": "one",
+            "isManyToMany": false,
+            "doInclude": true
+        },
+        {
+            "propertyName": "ardea_invoice_BookingId_ardea_booking",
+            "relatedEntityLogicalName": "ardea_invoice",
+            "oneOrMany": "many",
+            "isManyToMany": false,
+            "doInclude": false,
+            "expand": [
+                {
+                    "propertyName": "ardea_invoicelineitem_Invoice_ardea_invoice",
+                    "relatedEntityLogicalName": "ardea_invoicelineitem",
+                    "oneOrMany": "many",
+                    "isManyToMany": false,
+                    "doInclude": true,
+                    "expand": [
+                        {
+                            "propertyName": "ardea_VATRate",
+                            "relatedEntityLogicalName": "ardea_vatrate",
+                            "oneOrMany": "one",
+                            "isManyToMany": false,
+                            "doInclude": true
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
 ```
-
-The app registration will also need to registered as an app user in the relevant
-environment and given the required permissions.
-
-This has been hacked together, it would be better if it:
-
-- accepted a path to a configuration.json file
-- accepted a path to an output file
-
-This seemed like overkill for a proof of concept.
-
-## Missing Features
-
-There are a few missing features which have not been implemented but are
-relatively straight forward:
-
-- Audit records are not being ordered (I forgot: quick fix)
-- There is no pagination (I didn't have time: simple but time consuming fix)

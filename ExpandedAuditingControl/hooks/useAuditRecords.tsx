@@ -35,22 +35,16 @@ export interface IUseAuditRecords {
  *
  * @param {IDataverseController} dataverseController - Controller interface for
  *  interacting with Dataverse
- * @param {string} primaryEntityLogicalName - Logical name of the primary entity
- * @param {string} primaryEntityId - Unique identifier of the primary entity
+ * @property {string} primaryEntityId - Unique identifier of the primary entity
  *  record
- * @param {string} relationshipNames - Comma-separated list of relationship
- *  names
- * @param {string} relatedEntityNames - Comma-separated list of related entity
- *  logical names
+ * @property {string} controlConfig - JSON configuration for the control
  * @returns {IUseAuditRecords} Object containing audit data, loading state,
  *  filters, and related functions
  */
 export const useAuditRecords = (
     dataverseController: IDataverseController,
-    primaryEntityLogicalName: string,
     primaryEntityId: string,
-    relationshipNames: string,
-    relatedEntityNames: string
+    controlConfig: string
 ): IUseAuditRecords => {
     const isMounted = useRef(true);
     const [isLoading, setIsLoading] = useState(false);
@@ -127,10 +121,8 @@ export const useAuditRecords = (
 
             const tableDataResponse =
                 await dataverseController.getExpandedAuditRecords(
-                    primaryEntityLogicalName,
                     primaryEntityId,
-                    relationshipNames,
-                    relatedEntityNames
+                    controlConfig
                 );
             if (isMounted.current) {
                 setTableData(tableDataResponse);
@@ -142,14 +134,7 @@ export const useAuditRecords = (
                 setIsLoading(false);
             }
         }
-    }, [
-        dataverseController,
-        primaryEntityLogicalName,
-        primaryEntityId,
-        relationshipNames,
-        relatedEntityNames,
-        handleError,
-    ]);
+    }, [dataverseController, primaryEntityId, controlConfig, handleError]);
 
     /**
      * Toggles the visibility of a specific entity type in the filters.

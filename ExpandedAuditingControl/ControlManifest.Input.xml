@@ -3,7 +3,7 @@
   <control 
     namespace="ExpandedAuditingControl" 
     constructor="ExpandedAuditingControl" 
-    version="0.0.132" 
+    version="0.0.159" 
     display-name-key="ExpandedAuditingControl" 
     description-key="ExpandedAuditingControl description" 
     control-type="virtual" >
@@ -15,13 +15,6 @@
       usage="bound" 
       required="true" />
     <property 
-      name="primaryEntityLogicalName" 
-      display-name-key="Primary Entity Logical Name" 
-      description-key="Logical name of the primary entity" 
-      of-type="SingleLine.Text" 
-      usage="input" 
-      required="true" />
-    <property 
       name="primaryEntityId" 
       display-name-key="Primary Entity ID" 
       description-key="Guid for the primary entity" 
@@ -29,17 +22,10 @@
       usage="input" 
       required="true" />
     <property 
-      name="RelationshipNames" 
-      display-name-key="Relationship Names" 
-      description-key="Comma-separated relationship names" 
-      of-type="SingleLine.Text" 
-      usage="input" 
-      required="true" />
-    <property 
-      name="RelatedEntityNames" 
-      display-name-key="Related Entity Names" 
-      description-key="Comma-separated related entity names" 
-      of-type="SingleLine.Text" 
+      name="controlConfig" 
+      display-name-key="Control Config" 
+      description-key="JSON object containing control configuration. See readme in control src for the schema" 
+      of-type="Multiple" 
       usage="input" 
       required="true" />
     <resources>

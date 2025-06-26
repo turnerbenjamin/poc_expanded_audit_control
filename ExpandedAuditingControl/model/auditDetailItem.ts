@@ -4,52 +4,61 @@ import {
     WebApiRecordChangeHistoryAuditDetail,
     WebApiRecordChangeHistoryChangeValues,
 } from "../service/webApiRequestAndResponseTypes";
-import { ChangeDataItemValue, IRawChangeDataItem } from "./auditTableTypes";
+import {
+    ChangeDataItemValue,
+    IRawChangeDataItem,
+    IRawTargetDataItem,
+} from "./auditTableTypes";
 import { ControlEntityReference } from "./controlTypes";
 
 /**
- * Enumeration of OData annotation keys used for data processing
+ * Enumeration of OData property annotations used in Dataverse Web API responses
+ * to provide additional metadata about field values
  */
 enum PropertyAnnotations {
     FormattedValue = "@OData.Community.Display.V1.FormattedValue",
     LookupLogicalName = "@Microsoft.Dynamics.CRM.lookuplogicalname",
-    AssociatedNavigationValue = "@Microsoft.Dynamics.CRM.associatednavigationproperty",
     Type = "@odata.type",
 }
 
 /**
- * Represents an array of change data items from an audit record
+ * Array of change data items representing field-level changes in an audit
+ * record for create and update operations
  */
 type ServiceChangeData = IRawChangeDataItem[];
 
 /**
- * Processes and formats audit details from Dynamics 365 audit records.
- * Handles the parsing of audit records and change data to create a structured
- * representation of historical changes to records.
+ * Array of target record data items for association/disassociation operations
+ */
+type ServiceTargetRecordData = IRawTargetDataItem[];
+
+/**
+ * Represents a processed audit detail item containing audit record information,
+ * change data, and target records for associate/disassociate operations.
+ *
+ * This class transforms raw Web API audit detail responses into a structured
+ * format suitable for display in audit tables.
  */
 export class AuditDetailItem {
-    // The parsed audit record
     public readonly auditRecord: ServiceAuditRecord;
 
-    // Collection of changes made in the audit record or undefined
     public readonly changeData: ServiceChangeData | undefined;
 
-    /**
-     * Creates a new audit detail item from a WebApi audit detail
-     * @param auditDetailItem - The raw audit detail record from the WebApi
-     */
+    public readonly targetRecords: ServiceTargetRecordData | undefined;
+
     constructor(auditDetailItem: WebApiRecordChangeHistoryAuditDetail) {
         this.auditRecord = this.parseAuditRecord(auditDetailItem.AuditRecord);
         this.changeData = this.parseChangeData(
             auditDetailItem.OldValue,
             auditDetailItem.NewValue
         );
+        this.targetRecords = this.parseTargetRecords(auditDetailItem);
     }
 
     /**
-     * Transforms a WebApi audit record into a service-friendly format
-     * @param auditRecord - The raw WebApi audit record
-     * @returns A formatted service audit record with user-friendly fields
+     * Parses raw audit record data into a structured service audit record
+     * @param auditRecord - Raw audit record from the Web API response
+     * @returns Structured audit record with parsed fields and metadata
      */
     private parseAuditRecord(
         auditRecord: WebApiAuditRecord
@@ -81,14 +90,16 @@ export class AuditDetailItem {
     }
 
     /**
-     * Parses the old and new values from an audit record to create change data
-     * items
-     * @param {WebApiRecordChangeHistoryChangeValues | undefined} oldValues
-     *  Values before the change
-     * @param {WebApiRecordChangeHistoryChangeValues | undefined} newValues
-     *  Values after the change
-     * @returns {ServiceChangeData | undefined} Array of parsed change items or
-     *  undefined if no values
+     * Parses field change data from old and new values in audit records
+     * @param oldValues - Previous field values before the change
+     * @param newValues - New field values after the change
+     * @returns Array of change data items, or undefined if no change data
+     * available
+     *
+     * @remarks
+     * This method identifies all changed attributes by combining keys from both
+     * old and new values, then processes each changed field to extract both
+     * raw and formatted values along with lookup metadata.
      */
     private parseChangeData(
         oldValues: WebApiRecordChangeHistoryChangeValues | undefined,
@@ -116,25 +127,19 @@ export class AuditDetailItem {
     }
 
     /**
-     * Parses a single attribute change to create a change data item
-     * @param {string} attributeKey - The attribute key that changed
-     * @param {WebApiRecordChangeHistoryChangeValues} oldValues
-     *  Values before the change
-     * @param {WebApiRecordChangeHistoryChangeValues} newValues
-     *  Values after the change
-     * @returns {IRawChangeDataItem} A structured representation of the changed
-     *  attribute
+     * Parses a single field change item from old and new values
+     * @param attributeKey - The logical name of the changed attribute
+     * @param oldValues - Previous field values
+     * @param newValues - New field values
+     * @returns Structured change data item with old and new values
      */
     private parseChangeItem(
         attributeKey: string,
         oldValues: WebApiRecordChangeHistoryChangeValues,
         newValues: WebApiRecordChangeHistoryChangeValues
     ): IRawChangeDataItem {
-        const changedFieldLookupName = this.parseChangedFieldLookupName(
-            attributeKey,
-            oldValues,
-            newValues
-        );
+        const changedFieldLookupName =
+            this.parseChangedFieldLookupName(attributeKey);
         return {
             changedFieldLogicalName: changedFieldLookupName,
             oldValueRaw: this.parseChangeItemValue(attributeKey, oldValues),
@@ -143,12 +148,12 @@ export class AuditDetailItem {
     }
 
     /**
-     * Creates a structured value representation for a change item
-     * @param {string} attributeKey - The attribute key
-     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
-     *  collection
-     * @returns {ChangeDataItemValue} Structured representation with text and
-     *  lookup values
+     * Parses a field value from audit change data, extracting both text and
+     * lookup information
+     * @param attributeKey - The logical name of the attribute
+     * @param values - The change values containing the field data
+     * @returns Structured value containing text representation and lookup
+     * metadata
      */
     private parseChangeItemValue(
         attributeKey: string,
@@ -161,15 +166,11 @@ export class AuditDetailItem {
     }
 
     /**
-     * Extracts the text representation of a change value or "-" if no value
-     * exists. Uses the value in the formatted value annotation if present, this
-     * provides, text values for option field changes and the primary text value
-     * for lookup field changes.
-     *
-     * @param {string} attributeKey - The attribute key
-     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
-     *  collection
-     * @returns {string} The formatted text value or "-" if not available
+     * Extracts the text representation of a field value, preferring formatted
+     * values
+     * @param attributeKey - The logical name of the attribute
+     * @param values - The change values containing the field data
+     * @returns String representation of the field value, or "-" if no value
      */
     private parseChangeItemTextValue(
         attributeKey: string,
@@ -186,12 +187,15 @@ export class AuditDetailItem {
     }
 
     /**
-     * Extracts the lookup entity reference from a change value if applicable
-     * @param {string} attributeKey - The attribute key
-     * @param {WebApiRecordChangeHistoryChangeValues} values - The values
-     *  collection
-     * @returns {ControlEntityReference | null} Entity reference or null if not
-     *  a lookup
+     * Extracts lookup reference information from a field value if it represents
+     * a lookup
+     * @param attributeKey - The logical name of the attribute
+     * @param values - The change values containing the field data
+     * @returns Entity reference for lookup fields, or null for non-lookup
+     * fields
+     *
+     * @remarks
+     * Lookup fields in Dataverse follow the pattern "_fieldname_value"
      */
     private parseChangeItemLookupValue(
         attributeKey: string,
@@ -210,63 +214,149 @@ export class AuditDetailItem {
     }
 
     /**
-     * Selects the appropriate changed field logical name based on the presence
-     * and value of annotations.
+     * Converts a lookup field key to its logical name by removing Dataverse
+     * lookup naming conventions where present
+     * @param attributeKey - The raw attribute key from the audit data
+     * @returns The logical name of the field without prefixes and suffixes
      *
      * @remarks
-     * If there is a associated navigation property annotation and the value is
-     * a property logical name (lowercase) then this is used. Fields like
-     * systemuser are not on the entity itself so the field cannot be enriched
-     * with entity metadata. The associated navigation property will point to
-     * the relevant entity property in this instance. In other instances it will
-     * point to a relationship name which is why it is only used where the value
-     * is lowercase.
-     *
-     * Other fields, e.g. lookup fields will have a logical name attribute. The
-     * attribute key here will be in the format _{logical_name}_value so we need
-     * to use the value from the logical name attribute
-     *
-     * Finally, if neither of these rules apply the attribute key is used, for
-     * simple fields like singleline text the attribute key will represent the
-     * logical name of the appropriate field on the entity
-     *
-     * @param {string} attributeKey - The attribute key
-     * @param {WebApiRecordChangeHistoryChangeValues} oldValues - Values before
-     *  the change
-     * @param {WebApiRecordChangeHistoryChangeValues} newValues - Values after
-     *  the change
-     * @returns {string} The logical name of the changed field
+     * Dataverse lookup fields are stored with the pattern "_fieldname_value",
+     * this method extracts just the "fieldname" portion.
      */
-    private parseChangedFieldLookupName(
-        attributeKey: string,
-        oldValues: WebApiRecordChangeHistoryChangeValues,
-        newValues: WebApiRecordChangeHistoryChangeValues
-    ): string {
-        const associatedNavigationKey = `${attributeKey}${PropertyAnnotations.AssociatedNavigationValue}`;
-        const associatedNavigationValue: string | undefined =
-            oldValues[associatedNavigationKey] ||
-            newValues[associatedNavigationKey];
-
+    private parseChangedFieldLookupName(attributeKey: string): string {
+        const valueSuffix = "_value";
         if (
-            associatedNavigationValue &&
-            associatedNavigationValue ===
-                associatedNavigationValue.toLowerCase()
+            attributeKey.startsWith("_") &&
+            attributeKey.endsWith(valueSuffix)
         ) {
-            return associatedNavigationValue;
+            return attributeKey.slice(
+                1,
+                attributeKey.length - valueSuffix.length
+            );
         }
-
-        const logicalNameKey = `${attributeKey}${PropertyAnnotations.LookupLogicalName}`;
-        const logicalNameValue =
-            oldValues[logicalNameKey] || newValues[logicalNameKey];
-
-        return logicalNameValue ?? attributeKey;
+        return attributeKey;
     }
 
-    // Simple helper to check if property is an annotation. Used to make the
-    // logic above more declarative.
+    /**
+     * Determines if a property name represents an OData annotation rather than
+     * actual data. A little redundant, but makes the other logic in this file
+     * more declarative.
+     * @param property - The property name to check
+     * @returns True if the property is an OData annotation, false otherwise
+     */
     private isPropertyAnnotation(property: string) {
         const propertyAnnotationPrefix = "@";
         return property.includes(propertyAnnotationPrefix);
+    }
+
+    /**
+     * Parses target record data for association and disassociation audit
+     * operations
+     * @param auditDetailItem - The complete audit detail item from the Web API
+     * @returns Array of target record data for relationship operations, or
+     * undefined for other operations
+     *
+     * @remarks
+     * This method specifically handles audit records for entity
+     * associate/disassociate operations with action codes 33 and 34).
+     * It extracts information about the entities involved in the relationship
+     * change.
+     *
+     * Ultimately, this will be treated as change data, however, it is kept
+     * separate at this point as a more involved enrichment process is required
+     * due to the relatively sparse data returned
+     */
+    private parseTargetRecords(
+        auditDetailItem: WebApiRecordChangeHistoryAuditDetail
+    ): ServiceTargetRecordData | undefined {
+        const associateEntitiesAction = 33;
+        const disassociateEntitiesAction = 34;
+        const auditItemAction = auditDetailItem.AuditRecord.action;
+
+        if (
+            !auditDetailItem?.TargetRecords ||
+            !(
+                auditItemAction === associateEntitiesAction ||
+                auditItemAction === disassociateEntitiesAction
+            )
+        )
+            return;
+
+        const changeData: ServiceTargetRecordData = [];
+
+        for (const targetRecord of auditDetailItem.TargetRecords) {
+            const fullyQualifiedType = targetRecord[PropertyAnnotations.Type];
+            const typeNamespace = "#Microsoft.Dynamics.CRM.";
+            const type = fullyQualifiedType.replace(typeNamespace, "");
+
+            let id: string | undefined;
+            for (const property in targetRecord) {
+                if (property.endsWith("id")) {
+                    id = targetRecord[property];
+                    break;
+                }
+            }
+            if (!type || !id) continue;
+
+            changeData.push({
+                changedEntityLogicalName: type,
+                changedEntityId: id,
+                oldValueRaw: this.parseTargetRecordsItemValue(
+                    id,
+                    type,
+                    disassociateEntitiesAction,
+                    auditItemAction
+                ),
+                newValueRaw: this.parseTargetRecordsItemValue(
+                    id,
+                    type,
+                    associateEntitiesAction,
+                    auditItemAction
+                ),
+            });
+        }
+        if (!changeData?.length) return;
+        return changeData;
+    }
+
+
+    /**
+     * Creates a change data item value for target records in relationship 
+     * operations
+     * @param id - The ID of the target entity
+     * @param type - The logical name of the target entity type
+     * @param targetAction - The expected action code for this value (associate 
+     * or disassociate)
+     * @param actualAction - The actual action code from the audit record
+     * @returns Change data item value with entity reference, or empty value if 
+     * actions don't match
+     * 
+     * @remarks
+     * For association operations, the new value contains the entity reference 
+     * and old value is empty.
+     * 
+     * For disassociation operations, the old value contains the entity 
+     * reference and new value is empty.
+     */
+    private parseTargetRecordsItemValue(
+        id: string,
+        type: string,
+        targetAction: number,
+        actualAction: number
+    ): ChangeDataItemValue {
+        const emptyValue: ChangeDataItemValue = {
+            text: "-",
+            lookup: null,
+        };
+        if (targetAction !== actualAction) return emptyValue;
+
+        return {
+            text: type,
+            lookup: {
+                id: id,
+                logicalName: type,
+            },
+        };
     }
 
     /**

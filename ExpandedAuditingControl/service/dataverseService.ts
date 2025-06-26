@@ -3,13 +3,16 @@ import {
     ControlOperationalError,
 } from "../model/controlTypes";
 import {
+    ServiceEntityQuery,
+    ServiceExpandedItem,
     ServiceFetchAuditDataRequest,
     ServiceFetchAuditDataResponse,
     ServiceFetchEntityMetadataRequest,
     ServiceFetchEntityMetadataResponse,
+    ServiceFetchMultipleEntitiesRequest,
+    ServiceFetchMultipleEntitiesResponse,
     ServiceFetchRecordAndRelatedRecordsRequest,
     ServiceFetchRecordAndRelatedRecordsResponse,
-    ServiceRelationshipQuery,
 } from "./serviceRequestAndResponseTypes";
 import {
     RetrieveRecordChangeHistoryResponse,
@@ -24,55 +27,69 @@ import { AuditDetailItem } from "../model/auditDetailItem";
 import { RetrieveRecordChangeHistoryRequest } from "../model/retrieveChangeHistoryRequest";
 
 /**
- * Interface defining operations for retrieving data from Dataverse
- * Provides methods to fetch entity records, related records, audit data, and
- * metadata
+ * Interface defining the contract for Dataverse service operations. Provides
+ * methods for retrieving entity data, audit information, and metadata.
  */
 export interface IDataverseService {
     /**
-     * Fetches a primary record and its related records based on relationship
-     * definitions
-     * @param query The request containing primary entity and relationship
-     *  information
-     * @returns Primary entity with its related records
+     * Retrieves a record and its related records based on the specified query
+     * @param query - Service request defining the entity and related data to
+     * retrieve
+     * @returns Promise resolving to the primary entity with expanded related
+     * records
      */
     fetchRecordAndRelatedRecords(
         query: ServiceFetchRecordAndRelatedRecordsRequest
     ): Promise<ServiceFetchRecordAndRelatedRecordsResponse>;
 
     /**
-     * Fetches audit data for multiple entity records
-     * @param serviceRequest The request containing entity references to fetch
-     *  audit data for
-     * @returns Audit detail items for the specified entities
+     * Retrieves audit data for the specified target entities
+     * @param serviceRequest - Request containing the entities to fetch audit
+     * data for
+     * @returns Promise resolving to processed audit detail items
      */
     fetchAuditData(
         serviceRequest: ServiceFetchAuditDataRequest
     ): Promise<ServiceFetchAuditDataResponse>;
 
     /**
-     * Fetches entity metadata for specific attributes
-     * @param request The request containing entity and attribute information
-     * @returns Entity metadata including attribute definitions
+     * Retrieves entity and attribute metadata from Dataverse
+     * @param request - Request specifying the entity and attributes to get
+     * metadata for
+     * @returns Promise resolving to entity metadata including attribute
+     * definitions
      */
     fetchEntityMetadata(
         request: ServiceFetchEntityMetadataRequest
     ): Promise<ServiceFetchEntityMetadataResponse>;
+
+    /**
+     * Retrieves multiple entity records based on a list of IDs
+     * @param request - Request containing entity type, IDs, and fields to
+     * select
+     * @returns Promise resolving to the collection of retrieved entities
+     */
+    fetchMultipleEntities(
+        request: ServiceFetchMultipleEntitiesRequest
+    ): Promise<ServiceFetchMultipleEntitiesResponse>;
 }
 
 /**
- * Implementation of IDataverseService that interacts with Dataverse using the
- * WebApi and Utility objects from ComponentFramework
+ * Service class for performing Dataverse operations including entity retrieval,
+ * audit data fetching, and metadata operations.
  */
 export class DataverseService implements IDataverseService {
-    // Extended WebApi interface supporting Execute and ExecuteMultiple
+    /** Extended Web API client for Dataverse operations */
     private readonly _webApi: XrmWebApiExtended;
 
-    // ComponentFramework utility object for accessing entity metadata
+    /** Utility service for metadata operations */
     private readonly _utils: ComponentFramework.Utility;
 
-    // Mapping of action codes to their description for audit records that the
-    // control is not currently designed to handle
+    /**
+     * Map of audit action codes that should be excluded from processing
+     * These represent system-level audit events that are not relevant and
+     * would require bespoke parsing and enrichment
+     */
     private readonly unsupportedActions: Record<number, string> = {
         105: "Entity Audit Started",
         106: "Attribute Audit Started",
@@ -84,9 +101,10 @@ export class DataverseService implements IDataverseService {
     };
 
     /**
-     * Creates a new instance of the DataverseService
-     * @param webApi Extended WebApi interface for Dataverse operations
-     * @param utils ComponentFramework utilities for platform capabilities
+     * Creates a new DataverseService instance
+     * @param webApi - Extended Web API client for Dataverse operations
+     * @param utils - Utility service for framework operations like metadata
+     * retrieval
      */
     public constructor(
         webApi: XrmWebApiExtended,
@@ -97,36 +115,45 @@ export class DataverseService implements IDataverseService {
     }
 
     /**
-     * Fetches a primary record and its related records based on relationship
-     *  definitions
-     * @param query The request containing primary entity and relationship
-     *  information
-     * @returns Promise resolving to the primary entity with its related records
-     * @throws ControlOperationalError if building the query or fetching fails
+     * Retrieves a record and its related records using OData expansion
+     * @param req - Request specifying the entity ID and expansion configuration
+     * @returns Promise resolving to the primary entity with expanded related
+     * records
+     *
+     * @throws ControlOperationalError when the specified entity cannot be
+     * retrieved
      */
     public async fetchRecordAndRelatedRecords(
-        query: ServiceFetchRecordAndRelatedRecordsRequest
+        req: ServiceFetchRecordAndRelatedRecordsRequest
     ): Promise<ServiceFetchRecordAndRelatedRecordsResponse> {
-        const select = this.buildSelectQuery(query.primaryEntity.select);
-        const expand = this.buildExpandQuery(query.relationships);
-        const queryString = `?${select}&${expand}`;
+        const queryString = this.BuildWebApiQueryFromServiceEntityQuery(
+            req.entityId,
+            req.entityQuery
+        );
 
-        const webApiResponse = await this._webApi.retrieveRecord(
-            query.primaryEntity.logicalName,
-            query.primaryEntity.id,
+        const webApiResponse = await this._webApi.retrieveMultipleRecords(
+            req.entityQuery.primaryEntityLogicalName,
             queryString
         );
+
+        if (!webApiResponse?.entities?.length) {
+            throw new ControlOperationalError(
+                `Unable to retrieve entity (${req.entityId})`
+            );
+        }
+
+        const returnedEntity = webApiResponse.entities[0];
+
         return {
-            entity: webApiResponse,
+            entity: returnedEntity,
         };
     }
 
     /**
-     * Fetches audit data for multiple entity records
-     * @param serviceRequest The request containing entity references to fetch
-     *  audit data for
-     * @returns audit detail items for the specified entities
-     * @throws ControlOperationalError if parsing audit data fails
+     * Retrieves and processes audit data for multiple target entities
+     * @param serviceRequest - Request containing the entities to fetch audit
+     * data for
+     * @returns Promise resolving to processed and sorted audit detail items
      */
     public async fetchAuditData(
         serviceRequest: ServiceFetchAuditDataRequest
@@ -152,11 +179,13 @@ export class DataverseService implements IDataverseService {
     }
 
     /**
-     * Fetches entity metadata for specific attributes
-     * @param request The request containing entity and attribute information
-     * @returns Promise resolving to entity metadata including attribute
-     *  definitions
-     * @throws ControlOperationalError if metadata cannot be retrieved
+     * Retrieves entity and attribute metadata from Dataverse
+     * @param request - Request specifying the entity and attributes to get
+     * metadata for
+     * @returns Promise resolving to entity metadata with attribute definitions
+     *
+     * @throws ControlOperationalError when metadata cannot be retrieved for the
+     * specified entity
      */
     public async fetchEntityMetadata(
         request: ServiceFetchEntityMetadataRequest
@@ -185,12 +214,48 @@ export class DataverseService implements IDataverseService {
             });
         }
         return {
-            entityLogicalName: request.entityLogicalName,
+            LogicalName: request.entityLogicalName,
+            DisplayName: metadata.DisplayName,
+            PrimaryNameAttribute: metadata.PrimaryNameAttribute,
             attributes: dataverseAttributes,
         };
     }
 
-    // Parse WebApi response bodies into typed change history responses
+    /**
+     * Retrieves multiple entity records based on a collection of IDs
+     * @param request - Request containing entity type, IDs, and fields to
+     * select
+     * @returns Promise resolving to the collection of retrieved entities
+     */
+    public async fetchMultipleEntities(
+        request: ServiceFetchMultipleEntitiesRequest
+    ): Promise<ServiceFetchMultipleEntitiesResponse> {
+        const idField = `${request.entityLogicalName}id`;
+        const filterConditions = request.ids
+            .map((id) => `${idField} eq ${id}`)
+            .join(" or ");
+        const query = `?$select=${request.select.join(
+            ","
+        )}&$filter=${filterConditions}`;
+
+        const res = await this._webApi.retrieveMultipleRecords(
+            request.entityLogicalName,
+            query
+        );
+
+        return {
+            entities: res.entities,
+            entityLogicalName: request.entityLogicalName,
+        };
+    }
+
+    /**
+     * Parses multiple audit response objects from Web API execute responses
+     * @param responses - Array of execute responses containing audit data
+     * @returns Promise resolving to parsed audit history responses
+     *
+     * @throws ControlOperationalError when response parsing fails
+     */
     private async parseRecordChangeDataResponses(
         responses: XrmExecuteResponse[]
     ) {
@@ -211,9 +276,13 @@ export class DataverseService implements IDataverseService {
         }
     }
 
-    // Transform change history responses into audit detail items. Unsupported
-    // audit details are filtered out. Records from multiple sources are merged
-    // and sorted descending date order
+    /**
+     * Processes audit history responses into structured audit detail items
+     * @param entityChangeHistoryResponses - Parsed audit history responses from
+     * multiple entities
+     * @returns Merged and sorted array of audit detail items across all
+     * entities
+     */
     private parseAuditDetailItems(
         entityChangeHistoryResponses: RetrieveRecordChangeHistoryResponse[]
     ): AuditDetailItem[] {
@@ -239,31 +308,79 @@ export class DataverseService implements IDataverseService {
         );
     }
 
-    // Builds a $select query from an array of field names
-    private buildSelectQuery(fieldsToSelect: string[]): string {
-        if (fieldsToSelect.length < 1) {
-            throw new ControlOperationalError(
-                "Select parameter must contain at least one field"
-            );
-        }
-        return `$select=${fieldsToSelect.join(",")}`;
+    /**
+     * Builds a complete OData query string from a service entity query
+     * configuration
+     * @param entityId - The ID of the primary entity to retrieve
+     * @param entityQuery - Configuration defining the entity and related data
+     * to expand
+     * @returns Complete OData query string with select, expand, and filter
+     * clauses
+     */
+    private BuildWebApiQueryFromServiceEntityQuery(
+        entityId: string,
+        entityQuery: ServiceEntityQuery
+    ) {
+        const select = this.buildSelectQuery(
+            entityQuery.primaryEntityLogicalName
+        );
+
+        const expand = this.buildExpandQuery(entityQuery.expand);
+
+        const idField = `${entityQuery.primaryEntityLogicalName}id`;
+        const filter = `$filter=${idField} eq ${entityId}`;
+
+        return `?${select}&${expand}&${filter}`;
     }
 
-    // Builds a $expand query string parameter from relationship queries
+    /**
+     * Builds an OData $select clause for the specified entity
+     * @param entityLogicalName - Logical name of the entity
+     * @returns OData $select clause selecting the entity's ID field
+     */
+    private buildSelectQuery(entityLogicalName: string): string {
+        const idField = `${entityLogicalName}id`;
+        return `$select=${idField}`;
+    }
+
+    /**
+     * Builds an OData $expand clause for related entities with support for
+     * nested expansion
+     * @param expandedItems - Array of entities to expand
+     * @param depth - Current expansion depth (default: 1)
+     * @returns OData $expand clause with nested expansions
+     *
+     * @throws ControlOperationalError when maximum expansion depth is exceeded
+     *
+     * @remarks
+     * This method supports recursive expansion up to a maximum depth of 4
+     * levels to prevent infinite recursion and performance issues.
+     */
     private buildExpandQuery(
-        relationships: ServiceRelationshipQuery[]
+        expandedItems: ServiceExpandedItem[],
+        depth = 1
     ): string {
-        if (relationships.length < 1) {
+        const maximumDepth = 4;
+        if (depth > maximumDepth) {
             throw new ControlOperationalError(
-                "Relationships must contain at least 1 element"
+                `Maximum expand depth ${maximumDepth} exceeded`
             );
         }
-        const elements: string[] = [];
-        for (const relationship of relationships) {
-            const select = this.buildSelectQuery(relationship.select);
-            elements.push(`${relationship.relationshipName}(${select})`);
+
+        const expandValues: string[] = [];
+        for (const expandedItem of expandedItems) {
+            const select = this.buildSelectQuery(
+                expandedItem.relatedEntityLogicalName
+            );
+
+            const expand = expandedItem.expand
+                ? this.buildExpandQuery(expandedItem.expand, depth + 1)
+                : "";
+            expandValues.push(
+                `${expandedItem.propertyName}(${select};${expand})`
+            );
         }
 
-        return `$expand=${elements.join(",")}`;
+        return `$expand=${expandValues.join(",")}`;
     }
 }

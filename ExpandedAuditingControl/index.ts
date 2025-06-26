@@ -11,40 +11,64 @@ import {
     IDataverseController,
 } from "./controller/dataverseController";
 import {
-    AttributeMetadataCollection,
-    IAttributeMetadataCollection,
-} from "./model/attributeMetadataCollection";
+    EntityMetadataCollection,
+    IEntityMetadataCollection,
+} from "./model/entityMetadataCollection";
 import { ControlEntityReference } from "./model/controlTypes";
 import { XrmWebApiExtended } from "./model/XrmWebApiExtended";
+import {
+    IRecordDisplayNameCollection,
+    RecordDisplayNameCollection,
+} from "./model/recordDisplayNameCollection";
 
+/**
+ * Control that provides expanded auditing functionality. Including, displaying
+ * audit information for related records and providing detail for associate and
+ * disassociate controls.
+ *
+ * Uses FluentUi react components to maintain consistent styling with the
+ * consumer application
+ */
 export class ExpandedAuditingControl
     implements ComponentFramework.ReactControl<IInputs, IOutputs>
 {
+    /** The HTML container element for the control */
     private _container: HTMLDivElement;
+    /** The PCF context containing framework services and configuration */
     private _context: ComponentFramework.Context<IInputs>;
 
-    private _primaryEntityLogicalName: string;
+    /** The ID of the primary entity record being audited */
     private _primaryEntityId: string;
-    private _relationshipNames: string;
-    private _relatedEntities: string;
 
+    /** JSON configuration string for control configuration */
+    private _controlConfig: string;
+
+    /** Service for interacting with Dataverse APIs */
     private _dataverseService: IDataverseService;
+
+    /** Controller that orchestrates data operations for the audit view */
     private _dataverseController: IDataverseController;
-    private _attributeMetadataStore: IAttributeMetadataCollection;
-    private _attributeMetadataStoreLocalStorageKey = `voa_expandedAuditControl_attributeMetadataStore`;
+
+    /** Store for entity metadata with caching capabilities */
+    private _entityMetadataStore: IEntityMetadataCollection;
+
+    /** Local storage key for persisting entity metadata */
+    private _entityMetadataStoreLocalStorageKey = `voa_expandedAuditControl_entityMetadataStore`;
+
+    /** Store for caching record display names in memory */
+    private _recordDisplayNameStore: IRecordDisplayNameCollection;
 
     /**
-     * Used to initialize the control instance. Controls can kick off remote
-     * server calls and other initialization actions here.
+     * Initializes the control with required dependencies and configuration.
+     * Sets up services, controllers, and data stores needed for audit
+     * functionality.
      *
-     * @param context The entire property bag available to control via Context
-     * Object; It contains values as set up by the customizer mapped to property
-     * names defined in the manifest, as well as utility functions.
-     * @param notifyOutputChanged A callback method to alert the framework that
-     * the control has new outputs ready to be retrieved asynchronously.
-     * @param state A piece of data that persists in one session for a single
-     * user. Can be set at any point in a controls life cycle by calling
-     * 'setControlState' in the Mode interface.
+     * @param context - PCF context containing framework services and parameters
+     * @param notifyOutputChanged - Callback to notify the framework of output
+     * changes
+     * @param state - Dictionary containing control state data
+     * @param container - HTML container element where the control will be
+     * rendered
      */
     public init(
         context: ComponentFramework.Context<IInputs>,
@@ -60,61 +84,65 @@ export class ExpandedAuditingControl
             extendedWebApi,
             context.utils
         );
-        this._attributeMetadataStore = new AttributeMetadataCollection(
-            this._attributeMetadataStoreLocalStorageKey
+        this._entityMetadataStore = new EntityMetadataCollection(
+            this._entityMetadataStoreLocalStorageKey
         );
+        this._recordDisplayNameStore = new RecordDisplayNameCollection();
+
         this._dataverseController = new DataverseController(
             this._dataverseService,
-            this._attributeMetadataStore
+            this._entityMetadataStore,
+            this._recordDisplayNameStore
         );
 
-        this._primaryEntityLogicalName =
-            context.parameters.primaryEntityLogicalName.raw ?? "";
         this._primaryEntityId = context.parameters.primaryEntityId.raw ?? "";
-        this._relationshipNames =
-            context.parameters.RelationshipNames.raw ?? "";
-        this._relatedEntities = context.parameters.RelatedEntityNames.raw ?? "";
+        this._controlConfig = context.parameters.controlConfig.raw ?? "";
     }
 
     /**
-     * Called when any value in the property bag has changed.
+     * Creates and returns the React element that represents the control's UI.
+     * This method is called by the PCF framework when the control needs to be
+     * rendered or updated.
      *
-     *  @param context The entire property bag available to control via Context
-     * Object; It contains values as set up by the customizer mapped to names
-     * defined in the manifest, as well as utility functions
-     * @returns ReactElement root react element for the control
+     * @param context - Updated PCF context with current parameter values
+     * @returns React element containing the expanded audit view
      */
     public updateView(
         context: ComponentFramework.Context<IInputs>
     ): React.ReactElement {
         return React.createElement(ExpandedAuditView, {
             dataverseController: this._dataverseController,
-            primaryEntityLogicalName: this._primaryEntityLogicalName,
             primaryEntityId: this._primaryEntityId,
-            relationshipNames: this._relationshipNames,
-            relatedEntityNames: this._relatedEntities,
+            controlConfig: this._controlConfig,
             onClickEntityReference: this.navigateToRecord.bind(this),
         });
     }
 
     /**
-     * Called by the framework prior to a control receiving new data. This
-     * control has no need to return data.
+     * Returns the outputs of the control.
+     * Currently returns an empty object as this control doesn't provide outputs
+     * to the form.
      *
-     * @returns an object based on nomenclature defined in manifest, expecting
-     * object[s] for property marked as "bound" or "output"
+     * @returns Empty outputs object
      */
     public getOutputs(): IOutputs {
         return {};
     }
 
     /**
-     * Called when the control is to be removed from the DOM tree.
+     * Performs cleanup when the control is being destroyed.
      */
     public destroy(): void {
         ReactDOM.unmountComponentAtNode(this._container);
     }
 
+    /**
+     * Navigates to a specific record when an entity reference is clicked.
+     * Opens the target record in a new window using the PCF navigation service.
+     *
+     * @param entityReference - Reference to the entity record to navigate to
+     * @returns Promise that resolves when navigation is complete
+     */
     private async navigateToRecord(
         entityReference: ControlEntityReference | null
     ): Promise<void> {

@@ -1,107 +1,95 @@
-/**
- * This file defines TypeScript interfaces for service requests and responses
- * used in the Expanded Auditing Control.
- */
-
 import { AuditDetailItem } from "../model/auditDetailItem";
 import {
+    AttributeLogicalName,
     ControlAttributeDefinition,
     ControlEntityReference,
+    EntityLogicalName,
 } from "../model/controlTypes";
 
 /***** FETCH RECORD AND RELATED RECORDS *****/
 
 /**
- * Represents a query to retrieve a specific entity record.
- * @property {string} logicalName - The logical name of the entity to query.
- * @property {string} id - The unique identifier of the record to retrieve.
- * @property {string[]} select - Array of attribute names to retrieve for the
- *  record.
+ * Enumeration indicating whether an associated entity is on a one or many side
+ * of the relationship
  */
-export interface ServiceEntityQuery {
-    logicalName: string;
-    id: string;
-    select: string[];
+export enum ServiceOneOrMany {
+    "one",
+    "many",
 }
 
-/**
- * Represents a query to expand an entity to include details of related records
- * @property {string} relationshipName - The name of the relationship to
- *  the primary entity
- * @property {string[]} select - Array of attribute names to retrieve for the
- *  related record.
- */
-export interface ServiceRelationshipQuery {
-    relationshipName: string;
-    select: string[];
-}
-
-/**
- * Response type containing the entity record and its related records.
- * @property {ComponentFramework.WebApi.Entity} entity - The retrieved entity
- *  with related records.
- */
+/** Response containing a primary entity with its expanded related records */
 export interface ServiceFetchRecordAndRelatedRecordsResponse {
     entity: ComponentFramework.WebApi.Entity;
 }
 
 /**
- * Request type for fetching a primary entity record along with its related
- * records.
- * @property {ServiceEntityQuery} primaryEntity - Query details for the primary
- *  entity.
- * @property {ServiceRelationshipQuery[]} relationships - Array of relationship
- *  queries to expand the query to include related records.
+ * Configuration for expanding a related entity in an OData query. Supports
+ * nested expansion for complex relationship hierarchies.
  */
+export interface ServiceExpandedItem {
+    propertyName: string;
+    relatedEntityLogicalName: EntityLogicalName;
+    oneOrMany: ServiceOneOrMany;
+    isManyToMany: boolean;
+    doInclude: boolean | undefined;
+    expand: ServiceExpandedItem[] | undefined;
+}
+
+/**
+ * Query configuration for retrieving an entity with related records. Defines
+ * the primary entity and all related entities to expand.
+ */
+export interface ServiceEntityQuery {
+    primaryEntityLogicalName: EntityLogicalName;
+    expand: ServiceExpandedItem[];
+}
+
+/** Request for retrieving a specific entity record with its related records */
 export interface ServiceFetchRecordAndRelatedRecordsRequest {
-    primaryEntity: ServiceEntityQuery;
-    relationships: ServiceRelationshipQuery[];
+    entityId: string;
+    entityQuery: ServiceEntityQuery;
 }
 
 /***** FETCH ENTITY META DATA *****/
 
 /**
- * Response type containing metadata about an entity and its attributes.
- * @property {string} entityLogicalName - The logical name of the entity.
- * @property {ControlAttributeDefinition[]} attributes - Array of attribute
- *  definitions for the entity.
+ * Response containing entity metadata including display names and attribute
+ * definitions
  */
 export interface ServiceFetchEntityMetadataResponse {
-    entityLogicalName: string;
+    LogicalName: EntityLogicalName;
+    DisplayName: string;
+    PrimaryNameAttribute: string;
     attributes: ControlAttributeDefinition[];
 }
 
-/**
- * Request type for fetching entity metadata for specific attributes.
- */
+/** Request for retrieving entity and attribute metadata from Dataverse */
 export interface ServiceFetchEntityMetadataRequest {
+    entityLogicalName: EntityLogicalName;
+    attributeLogicalNames: Set<AttributeLogicalName>;
+}
+
+/***** FETCH MULTIPLE ENTITIES *****/
+
+/** Request for retrieving multiple entity records by their IDs */
+export interface ServiceFetchMultipleEntitiesRequest {
+    entityLogicalName: EntityLogicalName;
+    select: string[];
+    ids: string[];
+}
+
+/** Response containing multiple entity records with specified attributes */
+export interface ServiceFetchMultipleEntitiesResponse {
+    entities: ComponentFramework.WebApi.Entity[];
     entityLogicalName: string;
-    attributeLogicalNames: Set<string>;
 }
 
 /***** FETCH AUDIT DATA *****/
 
 /**
- * Represents a single audit record entry in the system.
- * @property {string} id - Unique identifier for the audit record.
- * @property {string} userFullname - Full name of the user who performed the
- *  action.
- * @property {string} userId - Unique identifier of the user who performed the
- *  action.
- * @property {number} actionValue - Numeric value representing the type of
- *  action performed.
- * @property {string} actionText - Descriptive text of the action performed.
- * @property {string} recordId - Unique identifier of the record that was
- *  modified.
- * @property {string} recordLogicalName - Logical name of the entity type that
- *  was modified.
- * @property {string} recordTypeDisplayName - Display name of the entity type
- *  that was modified.
- * @property {string} recordPrimaryName - Primary name field value of the
- *  modified record.
- * @property {Date} createdOn - Date and time when the audit record was created.
- * @property {string} createdOnLocalisedString - Localized string representation
- *  of the creation date.
+ * Represents structured audit record information extracted from raw Dataverse
+ * audit data. Contains user-friendly representations of audit events including
+ * user details, action descriptions, and timestamp information.
  */
 export interface ServiceAuditRecord {
     id: string;
@@ -118,18 +106,17 @@ export interface ServiceAuditRecord {
 }
 
 /**
- * Response type containing audit detail items.
- * @property {AuditDetailItem[]} auditDetailItems - Array of audit detail
- * items retrieved.
+ * Response containing processed audit detail items from multiple entities. The
+ * audit items are merged and sorted chronologically across all requested
+ * entities.
  */
 export interface ServiceFetchAuditDataResponse {
     auditDetailItems: AuditDetailItem[];
 }
 
 /**
- * Request type for fetching audit data for specific entities.
- * @property {ControlEntityReference[]} targetEntities - Array of entity
- *  references to retrieve audit data for.
+ * Request for retrieving audit data for a collection of entities. Used to fetch
+ * comprehensive audit history across multiple related records.
  */
 export interface ServiceFetchAuditDataRequest {
     targetEntities: ControlEntityReference[];

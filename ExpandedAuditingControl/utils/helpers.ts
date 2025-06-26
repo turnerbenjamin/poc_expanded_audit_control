@@ -1,55 +1,13 @@
-import {
-    ControlEntityReference,
-    ControlOperationalError,
-    ControlPrimaryEntityDefinition,
-} from "../model/controlTypes";
+import { ControlOperationalError } from "../model/controlTypes";
 
 /**
- * Extracts the primary entity and its related entities from a
- * ComponentFramework WebApi response and returns them as a list
+ * Generates the standard entity ID field name for a given entity logical name.
  *
- * @param primaryEntityDefinition - The definition of the primary entity
- *  including its logical name and relationship definitions
- * @param entityResponse - The API response containing the entity and related
- *  records
- * @returns An array of entity references for the primary entity and all
- *  related entities
- * @throws Error if required attributes are missing or undefined
- * @throws ControlOperationalError if type conversion fails
+ * @param entityLogicalName - The logical name of the entity
+ * @returns The ID field name following Dataverse naming convention
  */
-export function extractEntityAndRelatedEntitiesFromEntityResponse(
-    primaryEntityDefinition: ControlPrimaryEntityDefinition,
-    entityResponse: ComponentFramework.WebApi.Entity
-): ControlEntityReference[] {
-    const PrimaryEntity: ControlEntityReference = {
-        id: tryGetRecordValue<string>(
-            entityResponse,
-            primaryEntityDefinition.id
-        ),
-        logicalName: primaryEntityDefinition.logicalName,
-    };
-    const entities = [PrimaryEntity];
-
-    for (const relationshipDefinition of primaryEntityDefinition.relationshipDefinitions) {
-        const relatedEntities = tryGetRecordValue<Record<string, string>[]>(
-            entityResponse,
-            relationshipDefinition.schemaName
-        );
-
-        for (const relatedEntity of relatedEntities) {
-            const relatedEntityDefinition =
-                relationshipDefinition.entityDefinition;
-
-            entities.push({
-                id: tryGetRecordValue<string>(
-                    relatedEntity,
-                    relatedEntityDefinition.id
-                ),
-                logicalName: relatedEntityDefinition.logicalName,
-            });
-        }
-    }
-    return entities;
+export function getEntityIdField(entityLogicalName: string) {
+    return `${entityLogicalName}id`;
 }
 
 /**
@@ -62,7 +20,10 @@ export function extractEntityAndRelatedEntitiesFromEntityResponse(
  * @throws ControlOperationalError if type conversion fails
  * @template T - The expected type of the attribute value
  */
-function tryGetRecordValue<T>(record: Record<string, string>, key: string): T {
+export function tryGetRecordValue<T>(
+    record: Record<string, string>,
+    key: string
+): T {
     const attributeValue = record[key] as unknown;
 
     if (attributeValue === undefined || attributeValue === null) {

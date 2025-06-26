@@ -8,17 +8,13 @@ interface XrmRequestEntityType {
     id: string;
 }
 
-/**
- * Defines metadata for a parameter within a request's metadata
- */
+/** Defines metadata for a parameter within a request's metadata */
 interface ParameterMetadata {
     typeName: string;
     structuralProperty: StructuralProperty;
 }
 
-/**
- * Defines the metadata structure for an XRM request
- */
+/** Defines the metadata structure for an XRM request */
 interface XrmRequestMetadata {
     operationType: OperationType;
     operationName: string;
@@ -26,18 +22,14 @@ interface XrmRequestMetadata {
     parameterTypes: Record<string, ParameterMetadata>;
 }
 
-/**
- * Enumeration of operation types for Dynamics 365 Web API requests
- */
+/** Enumeration of operation types for Dynamics 365 Web API requests */
 enum OperationType {
     Action = 0,
     Function = 1,
     CRUD = 2,
 }
 
-/**
- * Defines the structural property types for request parameters
- */
+/** Defines the structural property types for request parameters */
 export enum StructuralProperty {
     Unknown = 0,
     PrimitiveType = 1,
@@ -78,9 +70,9 @@ export class RetrieveRecordChangeHistoryRequest {
     }
 
     /**
-     * Returns the metadata for this request
-     * This metadata is required by the Dynamics 365 Web API to properly process
-     * the request
+     * Returns the metadata for this request. This metadata is required by the
+     * Dynamics 365 Web API to process the request
+     *
      * @returns The request metadata object
      */
     public getMetadata(): XrmRequestMetadata {
