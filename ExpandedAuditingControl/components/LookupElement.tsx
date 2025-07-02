@@ -1,19 +1,25 @@
 import * as React from "react";
 import { ControlEntityReference } from "../model/controlTypes";
-import { Link } from "@fluentui/react-components";
+import { Link, makeStyles } from "@fluentui/react-components";
+
+// Styles for the component
+const useStyles = makeStyles({
+    auditTableCellContent: {
+        overflowX: "hidden",
+        whiteSpace: "nowrap",
+        textOverflow: "ellipsis",
+    },
+    AuditTableCellLink: {
+        display: "block",
+        width: "100%",
+        overflowX: "hidden",
+        whiteSpace: "nowrap",
+        textOverflow: "ellipsis",
+    },
+});
 
 /**
  * Props for the LookupElement component
- *
- * @interface LookupElementProps
- * @property {string} primaryEntityId - ID of the primary entity whose audit
- *  history is being displayed
- * @property {string} entityDisplayName - Display name of the entity to show in
- *  the UI
- * @property {ControlEntityReference} entityReference - Entity reference
- *  containing logical name and ID
- * @property {function} onClickEntityReference - Callback function triggered
- *  when a clickable entity reference is clicked
  */
 export interface LookupElementProps {
     primaryEntityId: string;
@@ -25,14 +31,12 @@ export interface LookupElementProps {
 }
 
 /**
- * Component that renders entity references in audit records.
- * If the entity reference matches the primary entity ID, it's displayed as
- * plain text.
- * Otherwise, it's rendered as a clickable link that can navigate to the related
- * entity.
+ * LookupElement - Renders an entity reference that may be clickable or static
+ * text.
  *
- * @param {LookupElementProps} props - Component props
- * @returns {JSX.Element} A paragraph with either plain text or a clickable link
+ * If the entity is the primary entity being audited, it renders as static text.
+ * Otherwise, it renders as a clickable link that triggers the
+ * onClickEntityReference callback.
  */
 export const LookupElement: React.FC<LookupElementProps> = ({
     primaryEntityId,
@@ -42,16 +46,26 @@ export const LookupElement: React.FC<LookupElementProps> = ({
 }) => {
     const isPrimaryEntity = entityReference.id === primaryEntityId;
 
+    const styles = useStyles();
     if (isPrimaryEntity) {
-        return <p title={entityDisplayName}>{entityDisplayName}</p>;
+        return (
+            <p
+                title={entityDisplayName}
+                className={styles.auditTableCellContent}
+            >
+                {entityDisplayName}
+            </p>
+        );
     }
 
     return (
-        <p
+        <Link
+            className={styles.AuditTableCellLink}
+            role="button"
             onClick={() => void onClickEntityReference(entityReference)}
             title={entityDisplayName}
         >
-            <Link>{entityDisplayName}</Link>
-        </p>
+            {entityDisplayName}
+        </Link>
     );
 };

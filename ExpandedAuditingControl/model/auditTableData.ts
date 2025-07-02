@@ -61,9 +61,6 @@ export class AuditTableData {
     /** Enriched audit table row data ready for display */
     public rowData: IEnrichedAuditTableRowData[];
 
-    /** Set of unique entity display names present in the audit data */
-    public entityDisplayNames: Set<string> = new Set<string>();
-
     /** Store for caching entity and attribute metadata */
     private entityMetadataStore: IEntityMetadataCollection;
 
@@ -144,13 +141,8 @@ export class AuditTableData {
     }
 
     /**
-     * Converts audit detail items into raw audit table row data and collects
-     * entity display names. This method also populates the entityDisplayNames
-     * set with unique entity display names in the audit records for UI
-     * filtering purposes.
-     *
-     * @param auditDetailItems - Array of audit detail items to process
-     * @returns Array of raw audit table row data
+     * Transforms an array of audit detail items into raw audit table row data
+     * objects. This is the initial data transformation step in the pipeline.
      */
     private buildRawRowData(
         auditDetailItems: AuditDetailItem[]
@@ -158,10 +150,6 @@ export class AuditTableData {
         const rowData = [];
         for (const auditDetailItem of auditDetailItems) {
             rowData.push(new AuditTableRowData(auditDetailItem));
-
-            const entityDisplayName =
-                auditDetailItem.auditRecord.recordTypeDisplayName;
-            this.entityDisplayNames.add(entityDisplayName);
         }
         return rowData;
     }

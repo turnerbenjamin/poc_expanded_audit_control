@@ -8,15 +8,6 @@ import {
 
 /***** FETCH RECORD AND RELATED RECORDS *****/
 
-/**
- * Enumeration indicating whether an associated entity is on a one or many side
- * of the relationship
- */
-export enum ServiceOneOrMany {
-    "one",
-    "many",
-}
-
 /** Response containing a primary entity with its expanded related records */
 export interface ServiceFetchRecordAndRelatedRecordsResponse {
     entity: ComponentFramework.WebApi.Entity;
@@ -29,9 +20,7 @@ export interface ServiceFetchRecordAndRelatedRecordsResponse {
 export interface ServiceExpandedItem {
     propertyName: string;
     relatedEntityLogicalName: EntityLogicalName;
-    oneOrMany: ServiceOneOrMany;
     isManyToMany: boolean;
-    doInclude: boolean | undefined;
     expand: ServiceExpandedItem[] | undefined;
 }
 

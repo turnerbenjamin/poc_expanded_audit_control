@@ -1,35 +1,41 @@
 import * as React from "react";
-import {
-    Table,
-    TableBody,
-    TableHeader,
-    TableHeaderCell,
-    TableRow,
-} from "@fluentui/react-components";
+import { makeStyles, Table, TableBody } from "@fluentui/react-components";
 import { AuditTableData } from "../model/auditTableData";
-import { ControlEntityReference, TableFilters } from "../model/controlTypes";
-import { IEnrichedAuditTableRowData } from "../model/auditTableTypes";
-import { LoadingSpinner } from "./LoadingSpinner";
+import { ControlEntityReference } from "../model/controlTypes";
+import { LoadingSpinner, LoadingSpinnerAlignment } from "./LoadingSpinner";
 import { AuditDataTableRow } from "./AuditDataTableRow";
+import { AuditDataTableHeader } from "./AuditDataTableHeader";
+import { useAuditTableFilter } from "../hooks/useAuditTableFilter";
+import { UniqueColumnValues } from "../model/uniqueColumnValues";
+import {
+    SortableColumnIdentifier,
+    TableSortSetting,
+    useAuditTableSort,
+} from "../hooks/useAuditTableSort";
+
+// Styles for the component
+const useStyles = (isLoading: boolean) =>
+    makeStyles({
+        tableWrapper: {
+            position: "relative",
+        },
+        table: {
+            opacity: isLoading ? 0.6 : 1,
+            transition: "opacity 0.2s ease-in-out",
+        },
+    })();
 
 /**
  * Props for the AuditDataTable component
  *
- * @interface AuditDataTableProps
- * @property {string} primaryEntityId - ID of the primary entity whose audit
- *  history is being displayed
- * @property {TableFilters | undefined} tableFilters - Filters to control which
- *  entity types are displayed
- * @property {AuditTableData | undefined} auditTableData - The audit data to be
- *  displayed in the table
- * @property {boolean} isLoading - Indicates whether data is currently being
- *  fetched
- * @property {function} onClickEntityReference - Callback function triggered
- *  when an entity reference is clicked
+ * @property {string} primaryEntityId - ID of the primary entity
+ * @property {AuditTableData | undefined} auditTableData - audit records
+ * @property {boolean} isLoading - Whether audit records being fetched
+ * @property {function} onClickEntityReference - Callback triggered when an
+ * entity reference is clicked in the table
  */
 export interface AuditDataTableProps {
     primaryEntityId: string;
-    tableFilters: TableFilters | undefined;
     auditTableData: AuditTableData | undefined;
     isLoading: boolean;
     onClickEntityReference: (
@@ -39,63 +45,77 @@ export interface AuditDataTableProps {
 
 /**
  * Component for rendering a table of audit history data.
- *
- * @param {AuditDataTableProps} props - Component props
- * @returns {JSX.Element} Rendered table component with audit data
  */
 export const AuditDataTable: React.FC<AuditDataTableProps> = ({
     auditTableData,
-    tableFilters,
     onClickEntityReference,
     primaryEntityId,
     isLoading,
 }) => {
-    const columns = [
-        "Changed Date",
-        "Changed By",
-        "Record",
-        "Event",
-        "Changed Field",
-        "Old Value",
-        "New Value",
-    ];
+    const rowData = auditTableData?.rowData ?? [];
 
-    let rowData: IEnrichedAuditTableRowData[] = [];
-    if (auditTableData?.rowData) {
-        rowData = auditTableData.rowData;
-    }
+    // Initialise sorting state
+    const serverSideSorting: TableSortSetting = React.useMemo(() => {
+        return {
+            columnIdentifier: SortableColumnIdentifier.changedDate,
+            direction: "descending",
+        };
+    }, []);
 
+    const { sortedRows, sortSettings, setSortSettings } = useAuditTableSort(
+        rowData,
+        serverSideSorting
+    );
+
+    // Initialise filtering state
+    const filterRows = useAuditTableFilter();
+
+    // Create row elements and build a collection of unique column values used
+    // by filters
+    const { renderedRows, uniqueColumnValues } = React.useMemo(() => {
+        const uniqueValues = new UniqueColumnValues();
+        const rows: JSX.Element[] = [];
+
+        sortedRows.forEach((row) => {
+            const filteredRow = filterRows.applyFiltersToRow(row);
+            if (!filteredRow) return;
+
+            uniqueValues.AddRowValues(filteredRow);
+            rows.push(
+                <AuditDataTableRow
+                    key={filteredRow.id}
+                    primaryEntityId={primaryEntityId}
+                    row={filteredRow}
+                    onClickEntityReference={onClickEntityReference}
+                />
+            );
+        });
+
+        return {
+            renderedRows: rows,
+            uniqueColumnValues: uniqueValues,
+        };
+    }, [sortedRows, filterRows, primaryEntityId, onClickEntityReference]);
+
+    const styles = useStyles(isLoading);
     return (
-        <div className="voa_audit_table_wrapper">
-            {isLoading && <LoadingSpinner />}
-            <Table className="voa_audit_table">
-                <TableHeader>
-                    <TableRow>
-                        {columns.map((col) => (
-                            <TableHeaderCell
-                                key={col}
-                                className="voa_audit_table_header_cell"
-                            >
-                                {col}
-                            </TableHeaderCell>
-                        ))}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {rowData.map((row) => {
-                        if (!tableFilters?.[row.entityDisplayName]) {
-                            return;
-                        }
-                        return (
-                            <AuditDataTableRow
-                                key={row.id}
-                                primaryEntityId={primaryEntityId}
-                                row={row}
-                                onClickEntityReference={onClickEntityReference}
-                            />
-                        );
-                    })}
-                </TableBody>
+        <div className={styles.tableWrapper}>
+            {isLoading && (
+                <LoadingSpinner alignment={LoadingSpinnerAlignment.top} />
+            )}
+            <Table
+                className={styles.table}
+                sortable
+                aria-label="Audit history data table"
+                aria-busy={isLoading}
+            >
+                <AuditDataTableHeader
+                    filterData={filterRows}
+                    uniqueColumnValues={uniqueColumnValues}
+                    sortSettings={sortSettings}
+                    setSortSettings={setSortSettings}
+                />
+                <TableBody>{renderedRows}</TableBody>
             </Table>
         </div>
     );

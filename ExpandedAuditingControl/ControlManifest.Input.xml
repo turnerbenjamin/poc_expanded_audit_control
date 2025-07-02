@@ -3,7 +3,7 @@
   <control 
     namespace="ExpandedAuditingControl" 
     constructor="ExpandedAuditingControl" 
-    version="0.0.159" 
+    version="0.1.78" 
     display-name-key="ExpandedAuditingControl" 
     description-key="ExpandedAuditingControl description" 
     control-type="virtual" >
@@ -17,7 +17,7 @@
     <property 
       name="primaryEntityId" 
       display-name-key="Primary Entity ID" 
-      description-key="Guid for the primary entity" 
+      description-key="Guid for the primary entity"
       of-type="SingleLine.Text" 
       usage="input" 
       required="true" />
@@ -30,7 +30,6 @@
       required="true" />
     <resources>
       <code path="index.ts" order="1"/>
-      <css path="css/style.css" order="1" />
       <platform-library name="React" version="16.14.0" />
       <platform-library name="Fluent" version="9.46.2" />
     </resources>

@@ -55,6 +55,7 @@ export interface IEnrichedChangeDataItem {
  */
 export interface IRawAuditTableRowData {
     id: string;
+    date: Date;
     formattedDate: string;
     changedBy: string;
     event: string;
@@ -89,6 +90,7 @@ export interface IRawAuditTableRowData {
  */
 export interface IEnrichedAuditTableRowData {
     id: string;
+    date: Date;
     formattedDate: string;
     changedBy: string;
     event: string;

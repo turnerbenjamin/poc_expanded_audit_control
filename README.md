@@ -28,9 +28,7 @@ config should be a JSON object implementing the ServiceEntityQuery interface:
 export interface ServiceExpandedItem {
     propertyName: string;
     relatedEntityLogicalName: EntityLogicalName;
-    oneOrMany: ServiceOneOrMany;
     isManyToMany: boolean;
-    doInclude: boolean | undefined;
     expand: ServiceExpandedItem[] | undefined;
 }
 
@@ -55,36 +53,27 @@ errors are thrown early so should be shown when adding the control to the form.
         {
             "propertyName": "ardea_seatingplans_Booking_ardea_booking",
             "relatedEntityLogicalName": "ardea_seatingplans",
-            "oneOrMany": "many",
             "isManyToMany": false
         },
         {
             "propertyName": "ardea_Venue",
             "relatedEntityLogicalName": "ardea_venue",
-            "oneOrMany": "one",
-            "isManyToMany": false,
-            "doInclude": true
+            "isManyToMany": false
         },
         {
             "propertyName": "ardea_invoice_BookingId_ardea_booking",
             "relatedEntityLogicalName": "ardea_invoice",
-            "oneOrMany": "many",
             "isManyToMany": false,
-            "doInclude": false,
             "expand": [
                 {
                     "propertyName": "ardea_invoicelineitem_Invoice_ardea_invoice",
                     "relatedEntityLogicalName": "ardea_invoicelineitem",
-                    "oneOrMany": "many",
                     "isManyToMany": false,
-                    "doInclude": true,
                     "expand": [
                         {
                             "propertyName": "ardea_VATRate",
                             "relatedEntityLogicalName": "ardea_vatrate",
-                            "oneOrMany": "one",
-                            "isManyToMany": false,
-                            "doInclude": true
+                            "isManyToMany": false
                         }
                     ]
                 }

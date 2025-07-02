@@ -22,6 +22,9 @@ export class AuditTableRowData implements IRawAuditTableRowData {
     /** Unique identifier of the audit record */
     public id: string;
 
+    /** date audit event occurred */
+    public date: Date;
+
     /** Localized formatted date string of when the audit event occurred */
     public formattedDate: string;
 
@@ -61,6 +64,7 @@ export class AuditTableRowData implements IRawAuditTableRowData {
             logicalName: auditRecord.recordLogicalName,
         };
         this.id = auditRecord.id;
+        this.date = new Date(auditRecord.createdOnLocalisedString);
         this.formattedDate = auditRecord.createdOnLocalisedString;
         this.changedBy = auditRecord.userFullname;
         this.event = auditRecord.actionText;
@@ -103,6 +107,7 @@ export class AuditTableRowData implements IRawAuditTableRowData {
         return {
             entityReference: this.entityReference,
             id: this.id,
+            date: this.date,
             formattedDate: this.formattedDate,
             changedBy: this.changedBy,
             event: this.event,
@@ -119,22 +124,42 @@ export class AuditTableRowData implements IRawAuditTableRowData {
      */
     private getEnrichedChangeData(metadataStore: IEntityMetadataCollection) {
         return this.rawChangeData?.map((rawChangeDataItem) => {
-            const attributeDisplayName: string | undefined =
+            const attributeDisplayName: string =
                 metadataStore.getAttribute(
                     this.entityReference.logicalName,
                     rawChangeDataItem.changedFieldLogicalName
-                )?.displayName;
+                )?.displayName ?? rawChangeDataItem.changedFieldLogicalName;
+
+            this.enrichChangeDataItemValue(
+                rawChangeDataItem.oldValueRaw,
+                attributeDisplayName
+            );
+            this.enrichChangeDataItemValue(
+                rawChangeDataItem.newValueRaw,
+                attributeDisplayName
+            );
 
             return {
                 changedFieldLogicalName:
                     rawChangeDataItem.changedFieldLogicalName,
-                changedFieldDisplayName:
-                    attributeDisplayName ??
-                    rawChangeDataItem.changedFieldLogicalName,
+                changedFieldDisplayName: attributeDisplayName,
                 oldValue: rawChangeDataItem.oldValueRaw,
                 newValue: rawChangeDataItem.newValueRaw,
             };
         });
+    }
+
+    /**
+     * Replaces placeholder text in change data items with the field display
+     * name.
+     */
+    private enrichChangeDataItemValue(
+        changeDataItem: ChangeDataItemValue,
+        changedFieldDisplayName: string
+    ) {
+        if (changeDataItem.text === AuditDetailItem.changedFieldPlaceholder) {
+            changeDataItem.text = changedFieldDisplayName;
+        }
     }
 
     /**

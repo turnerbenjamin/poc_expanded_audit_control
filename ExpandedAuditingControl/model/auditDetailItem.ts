@@ -46,6 +46,10 @@ export class AuditDetailItem {
 
     public readonly targetRecords: ServiceTargetRecordData | undefined;
 
+    // Used to help identify values that need to be replaces with the value in
+    // changed field. Specifically, lookups without a primary name value
+    public static changedFieldPlaceholder = "%CHANGED_FIELD%";
+
     constructor(auditDetailItem: WebApiRecordChangeHistoryAuditDetail) {
         this.auditRecord = this.parseAuditRecord(auditDetailItem.AuditRecord);
         this.changeData = this.parseChangeData(
@@ -159,9 +163,20 @@ export class AuditDetailItem {
         attributeKey: string,
         values: WebApiRecordChangeHistoryChangeValues
     ): ChangeDataItemValue {
+        const lookupValue = this.parseChangeItemLookupValue(
+            attributeKey,
+            values
+        );
+        let doRequireFormattedValue = false;
+        if (lookupValue !== null) doRequireFormattedValue = true;
+
         return {
-            text: this.parseChangeItemTextValue(attributeKey, values),
-            lookup: this.parseChangeItemLookupValue(attributeKey, values),
+            text: this.parseChangeItemTextValue(
+                attributeKey,
+                values,
+                doRequireFormattedValue
+            ),
+            lookup: lookupValue,
         };
     }
 
@@ -174,14 +189,19 @@ export class AuditDetailItem {
      */
     private parseChangeItemTextValue(
         attributeKey: string,
-        values: WebApiRecordChangeHistoryChangeValues
+        values: WebApiRecordChangeHistoryChangeValues,
+        doRequireFormattedValue: boolean
     ) {
         if (!values[attributeKey]) {
             return "-";
         }
         const formattedValueKey = `${attributeKey}${PropertyAnnotations.FormattedValue}`;
         if (!values[formattedValueKey]) {
-            return values[attributeKey];
+            if (!doRequireFormattedValue) {
+                return values[attributeKey];
+            } else {
+                return AuditDetailItem.changedFieldPlaceholder;
+            }
         }
         return values[formattedValueKey];
     }
@@ -319,23 +339,22 @@ export class AuditDetailItem {
         return changeData;
     }
 
-
     /**
-     * Creates a change data item value for target records in relationship 
+     * Creates a change data item value for target records in relationship
      * operations
      * @param id - The ID of the target entity
      * @param type - The logical name of the target entity type
-     * @param targetAction - The expected action code for this value (associate 
+     * @param targetAction - The expected action code for this value (associate
      * or disassociate)
      * @param actualAction - The actual action code from the audit record
-     * @returns Change data item value with entity reference, or empty value if 
+     * @returns Change data item value with entity reference, or empty value if
      * actions don't match
-     * 
+     *
      * @remarks
-     * For association operations, the new value contains the entity reference 
+     * For association operations, the new value contains the entity reference
      * and old value is empty.
-     * 
-     * For disassociation operations, the old value contains the entity 
+     *
+     * For disassociation operations, the old value contains the entity
      * reference and new value is empty.
      */
     private parseTargetRecordsItemValue(

@@ -13,16 +13,6 @@ export type EntityLogicalName = string;
 // type alias for attribute logical names
 export type AttributeLogicalName = string;
 
-// type alias for property indication whether a given entity should be included
-// in the audit table
-type IsDisplayedInTable = boolean;
-
-/**
- * Definition of a mapping of entity names to a property indication whether they
- * should be included in the audit table
- */
-export type TableFilters = Record<EntityDisplayName, IsDisplayedInTable>;
-
 // type alias for attribute values
 type AttributeValue = string;
 

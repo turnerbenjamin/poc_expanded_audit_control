@@ -1,45 +1,40 @@
 import * as React from "react";
-import { TableFilterControl } from "./TableFilterControl";
-import { TableFilters } from "../model/controlTypes";
 import { TableRefreshControl } from "./TableRefreshControl";
+import { makeStyles, tokens } from "@fluentui/react-components";
+
+// Styles for the component
+const useStyles = makeStyles({
+    tableControlsWrapper: {
+        display: "flex",
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        marginBottom: tokens.spacingVerticalS,
+    },
+});
 
 /**
  * Props for the TableControls component
- *
- * @interface TableControlsProps
- * @property {TableFilters | undefined} recordFilters - Current filter settings
- *  for entity records
- * @property {function} handleToggleRecordFilter - Callback function to toggle
- *  visibility of specific entity types
- * @property {function} handleRefresh - Callback function to trigger data
- *  refresh
  */
 export interface TableControlsProps {
-    recordFilters: TableFilters | undefined;
-    handleToggleRecordFilter: (entityName: string) => void;
     handleRefresh: () => void;
+    isLoading: boolean;
 }
 
 /**
- * Component that renders table control elements.
- * Provides a container for filter controls and refresh button, allowing users
- * to filter data by entity type and refresh the audit data table.
- *
- * @param {TableControlsProps} props - Component props
- * @returns {JSX.Element} A div containing filter controls and refresh button
+ * TableControls - A React component that renders control buttons for table
+ * operations. Currently includes a refresh control only
  */
 export const TableControls: React.FC<TableControlsProps> = ({
-    recordFilters,
-    handleToggleRecordFilter,
     handleRefresh,
+    isLoading,
 }) => {
+    const styles = useStyles();
     return (
-        <div id="voa_expanded_audit_control--table-control-wrapper">
-            <TableFilterControl
-                tableFilters={recordFilters}
-                onFilterClick={handleToggleRecordFilter}
+        <div className={styles.tableControlsWrapper}>
+            <TableRefreshControl
+                handleRefresh={handleRefresh}
+                isLoading={isLoading}
             />
-            <TableRefreshControl handleRefresh={handleRefresh} />
         </div>
     );
 };

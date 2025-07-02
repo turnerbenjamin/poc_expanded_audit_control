@@ -20,6 +20,7 @@ import {
     IRecordDisplayNameCollection,
     RecordDisplayNameCollection,
 } from "./model/recordDisplayNameCollection";
+import { Theme } from "@fluentui/react-components";
 
 /**
  * Control that provides expanded auditing functionality. Including, displaying
@@ -110,7 +111,9 @@ export class ExpandedAuditingControl
     public updateView(
         context: ComponentFramework.Context<IInputs>
     ): React.ReactElement {
+        const theme = context.fluentDesignLanguage?.tokenTheme as Theme;
         return React.createElement(ExpandedAuditView, {
+            theme: theme,
             dataverseController: this._dataverseController,
             primaryEntityId: this._primaryEntityId,
             controlConfig: this._controlConfig,

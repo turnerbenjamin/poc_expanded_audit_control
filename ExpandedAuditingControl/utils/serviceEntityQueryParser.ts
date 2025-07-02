@@ -1,7 +1,6 @@
 import {
     ServiceEntityQuery,
     ServiceExpandedItem,
-    ServiceOneOrMany,
 } from "../service/serviceRequestAndResponseTypes";
 import { ControlOperationalError } from "../model/controlTypes";
 
@@ -165,14 +164,6 @@ export class ServiceEntityQueryParser {
         }
 
         if (
-            !ServiceEntityQueryParser.isValidOneOrManyValue(
-                typedExpandItem.oneOrMany
-            )
-        ) {
-            return "Expand items must include a oneOrMany property containing either `one` or `many`";
-        }
-
-        if (
             !ServiceEntityQueryParser.isValidBool(typedExpandItem.isManyToMany)
         ) {
             return "isManyToMany must be a boolean";
@@ -226,21 +217,6 @@ export class ServiceEntityQueryParser {
             return false;
         }
         return true;
-    }
-
-    /**
-     * Validates that a value is a valid ServiceOneOrMany enum value.
-     *
-     * @param candidate - The value to validate
-     * @returns True if the value is a valid ServiceOneOrMany value, false otherwise
-     */
-    private static isValidOneOrManyValue(candidate: unknown) {
-        if (!candidate) {
-            return false;
-        }
-        return Object.values(ServiceOneOrMany).includes(
-            candidate as ServiceOneOrMany
-        );
     }
 
     /**

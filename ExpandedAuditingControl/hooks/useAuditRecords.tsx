@@ -1,32 +1,13 @@
 import { IDataverseController } from "../controller/dataverseController";
-import { ControlOperationalError, TableFilters } from "../model/controlTypes";
+import { ControlOperationalError } from "../model/controlTypes";
 import { AuditTableData } from "../model/auditTableData";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-/**
- * Interface defining the return value of the useAuditRecords hook
- *
- * @interface IUseAuditRecords
- * @property {AuditTableData | undefined} tableData - The retrieved audit data
- *  or undefined if not loaded
- * @property {boolean} isLoading - Indicates whether data is currently being
- *  fetched
- * @property {ControlOperationalError | undefined} error - Any error that
- *  occurred during data fetching
- * @property {TableFilters | undefined} recordFilters - Filters for controlling
- *  which entity types are displayed
- * @property {() => Promise<void>} fetchAuditRecords - Function to trigger audit
- *  data retrieval
- * @property {(entityName: string) => void} handleToggleRecordFilter - Function
- *  to toggle visibility of a specific entity type
- */
 export interface IUseAuditRecords {
     tableData: AuditTableData | undefined;
     isLoading: boolean;
     error: ControlOperationalError | undefined;
-    recordFilters: TableFilters | undefined;
     fetchAuditRecords: () => Promise<void>;
-    handleToggleRecordFilter: (entityName: string) => void;
 }
 
 /**
@@ -53,32 +34,6 @@ export const useAuditRecords = (
     );
     const [tableData, setTableData] = useState<AuditTableData | undefined>(
         undefined
-    );
-    const [recordFilters, setRecordFilters] = useState<
-        TableFilters | undefined
-    >(undefined);
-
-    /**
-     * Initializes the record filters based on entity display names in the table
-     * data.
-     * Sets all entities to be visible by default.
-     *
-     * @param {AuditTableData | undefined} tableData - The audit table data
-     * containing entity display names
-     */
-    const initialiseRecordFilters = useCallback(
-        (tableData: AuditTableData | undefined) => {
-            if (tableData === undefined) {
-                return;
-            }
-
-            const filters: TableFilters = {};
-            for (const entityDisplayName of tableData.entityDisplayNames) {
-                filters[entityDisplayName] = true;
-            }
-            setRecordFilters(filters);
-        },
-        []
     );
 
     /**
@@ -137,22 +92,6 @@ export const useAuditRecords = (
     }, [dataverseController, primaryEntityId, controlConfig, handleError]);
 
     /**
-     * Toggles the visibility of a specific entity type in the filters.
-     *
-     * @param {string} entityName - The display name of the entity to toggle
-     */
-    const handleToggleRecordFilter = useCallback((entityName: string) => {
-        setRecordFilters((prevFilters) =>
-            prevFilters
-                ? {
-                      ...prevFilters,
-                      [entityName]: !prevFilters[entityName],
-                  }
-                : undefined
-        );
-    }, []);
-
-    /**
      * Effect to fetch audit records on initial render and clean up on unmount.
      * Sets the mounted ref to false on cleanup to prevent state updates after
      * unmount.
@@ -165,16 +104,6 @@ export const useAuditRecords = (
     }, [fetchAuditRecords]);
 
     /**
-     * Effect to initialize record filters when table data becomes available.
-     * Only runs if filters haven't been initialized yet.
-     */
-    useEffect(() => {
-        if (tableData && !recordFilters) {
-            initialiseRecordFilters(tableData);
-        }
-    }, [tableData, initialiseRecordFilters, recordFilters]);
-
-    /**
      * Memoized return value to prevent unnecessary re-renders in components
      * consuming this hook
      */
@@ -183,18 +112,9 @@ export const useAuditRecords = (
             tableData,
             isLoading,
             error,
-            recordFilters,
             fetchAuditRecords,
-            handleToggleRecordFilter,
         }),
-        [
-            tableData,
-            isLoading,
-            error,
-            recordFilters,
-            fetchAuditRecords,
-            handleToggleRecordFilter,
-        ]
+        [tableData, isLoading, error, fetchAuditRecords]
     );
 
     return returnValue;
