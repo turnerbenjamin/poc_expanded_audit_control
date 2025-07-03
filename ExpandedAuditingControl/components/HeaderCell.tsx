@@ -10,7 +10,11 @@ import {
     TableHeaderCell,
     tokens,
 } from "@fluentui/react-components";
-import { DismissFilled, Filter16Filled } from "@fluentui/react-icons";
+import {
+    ChevronDownRegular,
+    DismissFilled,
+    FilterFilled,
+} from "@fluentui/react-icons";
 import { SortControls, SortType } from "./SortControls";
 import {
     SortableColumnIdentifier,
@@ -169,7 +173,8 @@ export const HeaderCell: React.FC<HeaderCellProps> = ({
                     sortDirection={sortDirection}
                 >
                     <span>{label}</span>
-                    {isFilterApplied && <Filter16Filled />}
+                    <ChevronDownRegular />
+                    {isFilterApplied && <FilterFilled />}
                 </TableHeaderCell>
             </PopoverTrigger>
 
