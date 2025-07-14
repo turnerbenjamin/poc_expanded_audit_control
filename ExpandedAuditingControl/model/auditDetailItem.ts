@@ -192,13 +192,18 @@ export class AuditDetailItem {
         values: WebApiRecordChangeHistoryChangeValues,
         doRequireFormattedValue: boolean
     ) {
-        if (!values[attributeKey]) {
+        const value = values[attributeKey];
+        if (
+            value === undefined ||
+            value === null ||
+            value.toString().trim() === ""
+        ) {
             return "-";
         }
         const formattedValueKey = `${attributeKey}${PropertyAnnotations.FormattedValue}`;
         if (!values[formattedValueKey]) {
             if (!doRequireFormattedValue) {
-                return values[attributeKey];
+                return value;
             } else {
                 return AuditDetailItem.changedFieldPlaceholder;
             }
