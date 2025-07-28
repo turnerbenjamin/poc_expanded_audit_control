@@ -34,7 +34,7 @@ export interface ServiceExpandedItem {
 
 export interface ServiceEntityQuery {
     primaryEntityLogicalName: EntityLogicalName;
-    expand: ServiceExpandedItem[];
+    expand: ServiceExpandedItem[] | undefined;
 }
 ```
 

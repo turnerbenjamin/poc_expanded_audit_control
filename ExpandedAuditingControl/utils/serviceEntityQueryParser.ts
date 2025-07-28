@@ -91,22 +91,16 @@ export class ServiceEntityQueryParser {
         expandCandidate: unknown,
         depth = 1
     ): string | undefined {
-        // Top-level expand requires at least one element defined in the expand
-        // property
-        const minimumElementCount = depth === 1 ? 1 : 0;
-        const isRequired = depth === 1;
+        if (expandCandidate === undefined) return;
 
-        const isValidArray = ServiceEntityQueryParser.isValidArray(
-            expandCandidate,
-            minimumElementCount,
-            isRequired
-        );
-
-        if (!isValidArray) {
-            if (depth === 1) {
-                return "Top level expand must be an array containing at least 1 element";
-            }
-            return;
+        const minimumElementCount = 1;
+        if (
+            !ServiceEntityQueryParser.isValidArray(
+                expandCandidate,
+                minimumElementCount
+            )
+        ) {
+            return "Expand arrays must include at least 1 element";
         }
 
         if (depth > 1 && this._includesManyToMany) {
@@ -197,18 +191,12 @@ export class ServiceEntityQueryParser {
      *
      * @param candidate - The value to validate
      * @param minLength - The minimum required length of the array
-     * @param canBeUndefined - Whether the value can be undefined
      * @returns True if the value is a valid array, false otherwise
      */
     private static isValidArray(
         candidate: unknown,
-        minLength: number,
-        canBeUndefined: boolean
+        minLength: number
     ): boolean {
-        if (candidate == undefined) {
-            return canBeUndefined;
-        }
-
         if (!Array.isArray(candidate)) {
             return false;
         }

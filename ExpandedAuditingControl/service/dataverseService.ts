@@ -325,12 +325,16 @@ export class DataverseService implements IDataverseService {
             entityQuery.primaryEntityLogicalName
         );
 
-        const expand = this.buildExpandQuery(entityQuery.expand);
-
         const idField = `${entityQuery.primaryEntityLogicalName}id`;
         const filter = `$filter=${idField} eq ${entityId}`;
 
-        return `?${select}&${expand}&${filter}`;
+        const queryElements = [select, filter];
+
+        if (entityQuery.expand) {
+            queryElements.push(this.buildExpandQuery(entityQuery.expand));
+        }
+
+        return `?${queryElements.join("&")}`;
     }
 
     /**

@@ -30,7 +30,7 @@ export interface ServiceExpandedItem {
  */
 export interface ServiceEntityQuery {
     primaryEntityLogicalName: EntityLogicalName;
-    expand: ServiceExpandedItem[];
+    expand: ServiceExpandedItem[] | undefined;
 }
 
 /** Request for retrieving a specific entity record with its related records */
