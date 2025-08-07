@@ -22,9 +22,8 @@ const useStyles = makeStyles({
 });
 
 /**
- * Component that renders a table row for a single audit record.
- * Each row shows change date, user who made the change, affected record,
- * event type, and the specific field changes (with old and new values).
+ * Component that renders a single row in the audit data table, spanning all
+ * columns, to indicate that no data has been found
  */
 export const NoDataFoundRow: React.FC = () => {
     const styles = useStyles();
