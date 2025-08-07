@@ -203,7 +203,7 @@ export class AuditDetailItem {
         const formattedValueKey = `${attributeKey}${PropertyAnnotations.FormattedValue}`;
         if (!values[formattedValueKey]) {
             if (!doRequireFormattedValue) {
-                return value;
+                return `${value}`;
             } else {
                 return AuditDetailItem.changedFieldPlaceholder;
             }

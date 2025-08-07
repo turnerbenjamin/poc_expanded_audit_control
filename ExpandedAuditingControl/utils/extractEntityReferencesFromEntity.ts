@@ -32,7 +32,16 @@ export function extractEntityReferencesFromEntity(
 
     processObject(entity, entityReferences);
 
-    return entityReferences;
+    const distinctEntityIds = new Set<string>();
+    const distinctEntities: ControlEntityReference[] = [];
+
+    for (const entity of entityReferences) {
+        if (distinctEntityIds.has(entity.id)) continue;
+        distinctEntityIds.add(entity.id);
+        distinctEntities.push(entity);
+    }
+
+    return distinctEntities;
 }
 
 /**

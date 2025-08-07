@@ -4,7 +4,7 @@ import { AuditTableData } from "../model/auditTableData";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export interface IUseAuditRecords {
-    tableData: AuditTableData | undefined;
+    tableData: AuditTableData | null;
     isLoading: boolean;
     error: ControlOperationalError | undefined;
     fetchAuditRecords: () => Promise<void>;
@@ -24,7 +24,7 @@ export interface IUseAuditRecords {
  */
 export const useAuditRecords = (
     dataverseController: IDataverseController,
-    primaryEntityId: string,
+    primaryEntityId: string | null,
     controlConfig: string
 ): IUseAuditRecords => {
     const isMounted = useRef(true);
@@ -32,9 +32,7 @@ export const useAuditRecords = (
     const [error, setError] = useState<ControlOperationalError | undefined>(
         undefined
     );
-    const [tableData, setTableData] = useState<AuditTableData | undefined>(
-        undefined
-    );
+    const [tableData, setTableData] = useState<AuditTableData | null>(null);
 
     /**
      * Handles errors that occur during data fetching.
@@ -68,7 +66,7 @@ export const useAuditRecords = (
      */
     const fetchAuditRecords = useCallback(async (): Promise<void> => {
         try {
-            if (isLoading) {
+            if (isLoading || primaryEntityId === null) {
                 return;
             }
             setIsLoading(true);

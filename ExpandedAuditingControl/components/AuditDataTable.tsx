@@ -12,6 +12,7 @@ import {
     TableSortSetting,
     useAuditTableSort,
 } from "../hooks/useAuditTableSort";
+import { NoDataFoundRow } from "./NoDataFoundRow";
 
 // Styles for the component
 const useStyles = (isLoading: boolean) =>
@@ -35,8 +36,8 @@ const useStyles = (isLoading: boolean) =>
  * entity reference is clicked in the table
  */
 export interface AuditDataTableProps {
-    primaryEntityId: string;
-    auditTableData: AuditTableData | undefined;
+    primaryEntityId: string | null;
+    auditTableData: AuditTableData | null;
     isLoading: boolean;
     onClickEntityReference: (
         entityReference: ControlEntityReference | null
@@ -72,30 +73,29 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
 
     // Create row elements and build a collection of unique column values used
     // by filters
-    const { renderedRows, uniqueColumnValues } = React.useMemo(() => {
-        const uniqueValues = new UniqueColumnValues();
-        const rows: JSX.Element[] = [];
+    const uniqueValues = new UniqueColumnValues();
+    const renderedRows: JSX.Element[] = [];
 
-        sortedRows.forEach((row) => {
+    if (primaryEntityId && sortedRows.length > 0) {
+        sortedRows.forEach((row, i) => {
             const filteredRow = filterRows.applyFiltersToRow(row);
             if (!filteredRow) return;
 
             uniqueValues.AddRowValues(filteredRow);
-            rows.push(
+            renderedRows.push(
                 <AuditDataTableRow
-                    key={filteredRow.id}
+                    key={`${filteredRow.id}-${i}`}
                     primaryEntityId={primaryEntityId}
                     row={filteredRow}
                     onClickEntityReference={onClickEntityReference}
                 />
             );
         });
+    }
 
-        return {
-            renderedRows: rows,
-            uniqueColumnValues: uniqueValues,
-        };
-    }, [sortedRows, filterRows, primaryEntityId, onClickEntityReference]);
+    if (!renderedRows.length) {
+        renderedRows.push(<NoDataFoundRow key="NO_DATA_ROW" />);
+    }
 
     const styles = useStyles(isLoading);
     return (
@@ -111,7 +111,7 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
             >
                 <AuditDataTableHeader
                     filterData={filterRows}
-                    uniqueColumnValues={uniqueColumnValues}
+                    uniqueColumnValues={uniqueValues}
                     sortSettings={sortSettings}
                     setSortSettings={setSortSettings}
                 />

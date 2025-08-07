@@ -39,7 +39,7 @@ export class ExpandedAuditingControl
     private _context: ComponentFramework.Context<IInputs>;
 
     /** The ID of the primary entity record being audited */
-    private _primaryEntityId: string;
+    private _primaryEntityId: string | null;
 
     /** JSON configuration string for control configuration */
     private _controlConfig: string;
@@ -96,7 +96,7 @@ export class ExpandedAuditingControl
             this._recordDisplayNameStore
         );
 
-        this._primaryEntityId = context.parameters.primaryEntityId.raw ?? "";
+        this._primaryEntityId = context.parameters.primaryEntityId.raw;
         this._controlConfig = context.parameters.controlConfig.raw ?? "";
     }
 

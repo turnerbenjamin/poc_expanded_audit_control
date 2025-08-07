@@ -34,7 +34,7 @@ const useStyles = makeStyles({
 export interface ExpandedAuditViewProps {
     theme: Theme;
     dataverseController: IDataverseController;
-    primaryEntityId: string;
+    primaryEntityId: string | null;
     controlConfig: string;
     onClickEntityReference: (
         entityReference: ControlEntityReference | null
