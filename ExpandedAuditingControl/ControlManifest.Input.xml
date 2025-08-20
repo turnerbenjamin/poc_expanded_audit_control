@@ -3,16 +3,36 @@
   <control
     namespace="ExpandedAuditingControl"
     constructor="ExpandedAuditingControl"
-    version="0.2.16"
+    version="0.2.17"
     display-name-key="ExpandedAuditingControl"
     description-key="ExpandedAuditingControl description"
     control-type="virtual"
   >
+    <type-group name="anyType">
+      <type>Currency</type>
+      <type>DateAndTime.DateAndTime</type>
+      <type>DateAndTime.DateOnly</type>
+      <type>Decimal</type>
+      <type>Enum</type>
+      <type>FP</type>
+      <type>Lookup.Simple</type>
+      <type>Multiple</type>
+      <type>MultiSelectOptionSet</type>
+      <type>OptionSet</type>
+      <type>SingleLine.Email</type>
+      <type>SingleLine.Phone</type>
+      <type>SingleLine.Text</type>
+      <type>SingleLine.TextArea</type>
+      <type>SingleLine.Ticker</type>
+      <type>SingleLine.URL</type>
+      <type>TwoOptions</type>
+      <type>Whole.None</type>
+    </type-group>
     <property
       name="primaryEntityPrimaryKey"
-      display-name-key="Primary Entity Primary Key"
-      description-key="Primary key value for the primary entity"
-      of-type="SingleLine.Text"
+      display-name-key="Anchor Attribute"
+      description-key="Attribute to anchor control to Model-Driven Form"
+      of-type-group="anyType"
       usage="bound"
       required="true"
     />
