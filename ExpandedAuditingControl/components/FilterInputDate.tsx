@@ -49,10 +49,10 @@ export const FilterInputDate: React.FC<FilterInputDateProps> = ({
     setIsFilterMenuOpen,
 }) => {
     const [operator, setOperator] = React.useState<DateFilterOperator>(
-        dateFilter?.operator ?? DateFilterOperator.on
+        dateFilter?.operator ?? DateFilterOperator.on,
     );
     const [date, setDate] = React.useState<Date | null>(
-        dateFilter?.date ?? null
+        dateFilter?.date ?? null,
     );
 
     const dropdownId = useId(id);
@@ -80,7 +80,7 @@ export const FilterInputDate: React.FC<FilterInputDateProps> = ({
             const newDate = e.target.valueAsDate;
             setDate(newDate);
         },
-        []
+        [],
     );
 
     // Save filter and close the menu popup on save
@@ -105,13 +105,17 @@ export const FilterInputDate: React.FC<FilterInputDateProps> = ({
     return (
         <div>
             <div className={styles.filterOptions}>
-                <Dropdown
-                    onOptionSelect={onOptionSelect}
-                    id={dropdownId}
-                    defaultValue={operator}
-                >
-                    {dateFilterOptions}
-                </Dropdown>
+                <Field label="Operator">
+                    <Dropdown
+                        onOptionSelect={onOptionSelect}
+                        id={dropdownId}
+                        defaultValue={operator}
+                        value={operator}
+                        selectedOptions={[operator]}
+                    >
+                        {dateFilterOptions}
+                    </Dropdown>
+                </Field>
                 <Field label="From">
                     <Input
                         type="date"

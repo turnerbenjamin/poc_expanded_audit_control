@@ -59,7 +59,7 @@ export const FilterInputSelection: React.FC<FilterInputSelectionProps> = ({
     setIsFilterMenuOpen,
 }) => {
     const [selectedOptions, setSelectedOptions] = React.useState<Set<string>>(
-        filter?.selected ?? options
+        filter?.selected ?? options,
     );
 
     const dropdownId = useId(id);
@@ -98,7 +98,7 @@ export const FilterInputSelection: React.FC<FilterInputSelectionProps> = ({
     // Memoised dropdown options
     const renderedOptions = React.useMemo(() => {
         return Array.from(options).map((option) => (
-            <Option key={option} title={option}>
+            <Option key={option} title={option} value={option}>
                 {option}
             </Option>
         ));
@@ -109,7 +109,7 @@ export const FilterInputSelection: React.FC<FilterInputSelectionProps> = ({
         <div>
             <div className={styles.filterOptions}>
                 <div className={styles.dropdownContainer}>
-                    <Field>
+                    <Field label="Select options">
                         <Dropdown
                             id={dropdownId}
                             onOptionSelect={onOptionSelect}

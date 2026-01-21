@@ -3,7 +3,7 @@
   <control
     namespace="ExpandedAuditingControl"
     constructor="ExpandedAuditingControl"
-    version="0.2.17"
+    version="0.2.30"
     display-name-key="ExpandedAuditingControl"
     description-key="ExpandedAuditingControl description"
     control-type="virtual"

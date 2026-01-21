@@ -11,6 +11,8 @@ import {
     tokens,
 } from "@fluentui/react-components";
 import {
+    ArrowSortDownFilled,
+    ArrowSortUpFilled,
     ChevronDownRegular,
     DismissFilled,
     FilterFilled,
@@ -152,6 +154,7 @@ export const HeaderCell: React.FC<HeaderCellProps> = ({
                 onClick={() => setIsFilterMenuOpen(false)}
                 icon={<DismissFilled />}
                 appearance="subtle"
+                aria-label="Close filter options"
             />
         );
     }, [setIsFilterMenuOpen, styles]);
@@ -165,20 +168,43 @@ export const HeaderCell: React.FC<HeaderCellProps> = ({
                 align: alignFilterDropdown,
                 autoSize: "height",
             }}
+            trapFocus
         >
             <PopoverTrigger disableButtonEnhancement>
                 <TableHeaderCell
                     className={styles.headerCell}
-                    sortable={sortingControls !== null}
-                    sortDirection={sortDirection}
+                    sortable={false}
+                    role="button"
+                    aria-controls={`${label}-popover`}
+                    aria-haspopup="dialog"
+                    aria-expanded={isFilterMenuOpen}
+                    aria-label={`${label}${sortDirection ? `, sorted ${sortDirection}` : ""}${isFilterApplied ? `, filter applied` : ""}`}
+                    aria-sort={
+                        sortDirection === "ascending"
+                            ? "ascending"
+                            : sortDirection === "descending"
+                              ? "descending"
+                              : "none"
+                    }
                 >
                     <span>{label}</span>
-                    <ChevronDownRegular />
-                    {isFilterApplied && <FilterFilled />}
+                    {sortDirection &&
+                        (sortDirection === "ascending" ? (
+                            <ArrowSortUpFilled aria-hidden="true" />
+                        ) : (
+                            <ArrowSortDownFilled aria-hidden="true" />
+                        ))}
+                    <ChevronDownRegular aria-hidden="true" />
+                    {isFilterApplied && <FilterFilled aria-hidden="true" />}
                 </TableHeaderCell>
             </PopoverTrigger>
 
-            <PopoverSurface className={styles.contentWrapper}>
+            <PopoverSurface
+                id={`${label}-popover`}
+                role="dialog"
+                className={styles.contentWrapper}
+                aria-label={`filter options for ${label} column`}
+            >
                 {closePopupButton}
                 {sortingControls !== null && (
                     <>

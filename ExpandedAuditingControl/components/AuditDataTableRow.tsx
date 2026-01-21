@@ -38,8 +38,9 @@ const useStyles = makeStyles({
 export interface AuditDataTableRowProps {
     primaryEntityId: string;
     row: IEnrichedAuditTableRowData;
+    rowIndex: number;
     onClickEntityReference: (
-        entityReference: ControlEntityReference
+        entityReference: ControlEntityReference,
     ) => Promise<void>;
 }
 
@@ -51,26 +52,32 @@ export interface AuditDataTableRowProps {
 export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
     primaryEntityId,
     row,
+    rowIndex,
     onClickEntityReference,
 }) => {
     const styles = useStyles();
     return (
-        <TableRow className={styles.auditTableCell}>
+        <TableRow className={styles.auditTableCell} aria-rowindex={rowIndex}>
             {/* CHANGED DATE */}
             <TableCell
                 className={styles.auditTableCell}
                 title={row.formattedDate}
+                aria-colindex={1}
             >
                 {row.formattedDate}
             </TableCell>
 
             {/* CHANGED BY */}
-            <TableCell className={styles.auditTableCell} title={row.changedBy}>
+            <TableCell
+                className={styles.auditTableCell}
+                title={row.changedBy}
+                aria-colindex={2}
+            >
                 {row.changedBy}
             </TableCell>
 
             {/* RECORD */}
-            <TableCell className={styles.auditTableCell}>
+            <TableCell className={styles.auditTableCell} aria-colindex={3}>
                 <LookupElement
                     primaryEntityId={primaryEntityId}
                     entityReference={row.entityReference}
@@ -80,12 +87,16 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* EVENT */}
-            <TableCell className={styles.auditTableCell} title={row.event}>
+            <TableCell
+                className={styles.auditTableCell}
+                title={row.event}
+                aria-colindex={4}
+            >
                 {row.event}
             </TableCell>
 
             {/* CHANGED FIELD */}
-            <TableCell className={styles.auditTableCell}>
+            <TableCell className={styles.auditTableCell} aria-colindex={5}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}
@@ -95,7 +106,7 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* OLD VALUE */}
-            <TableCell className={styles.auditTableCell}>
+            <TableCell className={styles.auditTableCell} aria-colindex={6}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}
@@ -105,7 +116,7 @@ export const AuditDataTableRow: React.FC<AuditDataTableRowProps> = ({
             </TableCell>
 
             {/* NEW VALUE */}
-            <TableCell className={styles.auditTableCell}>
+            <TableCell className={styles.auditTableCell} aria-colindex={7}>
                 <ChangeDataElement
                     primaryEntityId={primaryEntityId}
                     changeData={row.enrichedChangeData}

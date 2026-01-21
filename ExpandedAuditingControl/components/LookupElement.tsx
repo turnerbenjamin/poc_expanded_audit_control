@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ControlEntityReference } from "../model/controlTypes";
-import { Link, makeStyles } from "@fluentui/react-components";
+import { Link, makeStyles, tokens } from "@fluentui/react-components";
 
 // Styles for the component
 const useStyles = makeStyles({
@@ -15,6 +15,16 @@ const useStyles = makeStyles({
         overflowX: "hidden",
         whiteSpace: "nowrap",
         textOverflow: "ellipsis",
+        ":focus": {
+            outline: `2px solid ${tokens.colorStrokeFocus2}`,
+            outlineOffset: "2px",
+            textDecoration: "none",
+        },
+        ":focus-visible": {
+            outline: `2px solid ${tokens.colorStrokeFocus2}`,
+            outlineOffset: "2px",
+            textDecoration: "none",
+        },
     },
 });
 
@@ -26,7 +36,7 @@ export interface LookupElementProps {
     entityDisplayName: string;
     entityReference: ControlEntityReference;
     onClickEntityReference: (
-        entityReference: ControlEntityReference
+        entityReference: ControlEntityReference,
     ) => Promise<void>;
 }
 
@@ -63,7 +73,7 @@ export const LookupElement: React.FC<LookupElementProps> = ({
             className={styles.AuditTableCellLink}
             role="button"
             onClick={() => void onClickEntityReference(entityReference)}
-            title={entityDisplayName}
+            title={`${entityDisplayName} (opens in new tab)`}
         >
             {entityDisplayName}
         </Link>

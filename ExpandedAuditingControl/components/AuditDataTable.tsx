@@ -40,7 +40,7 @@ export interface AuditDataTableProps {
     auditTableData: AuditTableData | null;
     isLoading: boolean;
     onClickEntityReference: (
-        entityReference: ControlEntityReference | null
+        entityReference: ControlEntityReference | null,
     ) => Promise<void>;
 }
 
@@ -65,7 +65,7 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
 
     const { sortedRows, sortSettings, setSortSettings } = useAuditTableSort(
         rowData,
-        serverSideSorting
+        serverSideSorting,
     );
 
     // Initialise filtering state
@@ -87,8 +87,9 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
                     key={`${filteredRow.id}-${i}`}
                     primaryEntityId={primaryEntityId}
                     row={filteredRow}
+                    rowIndex={i + 1}
                     onClickEntityReference={onClickEntityReference}
-                />
+                />,
             );
         });
     }
@@ -108,6 +109,8 @@ export const AuditDataTable: React.FC<AuditDataTableProps> = ({
                 sortable
                 aria-label="Audit history data table"
                 aria-busy={isLoading}
+                aria-rowcount={renderedRows.length + 1}
+                aria-colcount={7}
             >
                 <AuditDataTableHeader
                     filterData={filterRows}

@@ -20,10 +20,12 @@ export const TableRefreshControl: React.FC<TableRefreshControlProps> = ({
 }) => {
     return (
         <Button
-            icon={<ArrowClockwiseFilled />}
+            icon={<ArrowClockwiseFilled aria-hidden="true" />}
             onClick={handleRefresh}
             appearance="subtle"
             disabled={isLoading}
+            aria-label="Refresh table data"
+            aria-busy={isLoading}
         />
     );
 };
